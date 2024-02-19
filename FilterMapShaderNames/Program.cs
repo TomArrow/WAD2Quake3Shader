@@ -24,7 +24,7 @@ namespace FilterMapShaderNames
         static Regex badShaderNameChar = new Regex(@"[^-_\w\d:\\\/]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         static string fixUpShaderName(string shaderName)
         {
-            return badShaderNameChar.Replace(shaderName, "_");
+            return badShaderNameChar.Replace(shaderName, "_").ToLower();
         }
     }
 }

@@ -6,6 +6,7 @@ using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 using Crews.Utility.TgaSharp;
+using Litdex.Random.PRNG;
 using nz.doom.WadParser;
 
 namespace WAD2Quake3Shader
@@ -66,6 +67,7 @@ namespace WAD2Quake3Shader
 
             Dictionary<string, SortedSet<string>> togglingTextures = new Dictionary<string, SortedSet<string>>(StringComparer.InvariantCultureIgnoreCase);
             Dictionary<string, SortedSet<string>> randomTilingTextures = new Dictionary<string, SortedSet<string>>(StringComparer.InvariantCultureIgnoreCase);
+            Dictionary<string, ByteImage> randomTilingPicsData = new Dictionary<string, ByteImage>(StringComparer.InvariantCultureIgnoreCase);
 
             foreach (Lump lump in wad.Lumps)
             {
@@ -218,6 +220,8 @@ namespace WAD2Quake3Shader
                                 }
                             }
                         }
+
+                        randomTilingPicsData[textureName] = image;
 
                         /*if (!transparentPixelsFound && type == TextureType.Transparent) // Probably a decal.
                         {
@@ -415,7 +419,13 @@ namespace WAD2Quake3Shader
 
                         TGA myTGA = new TGA(imageBmp);
                         Directory.CreateDirectory("textures/wadConvert");
-                        myTGA.Save($"{texturePath}.tga");
+                        if(type == TextureType.RandomTiling && textureName.Length > 1 && textureName[1] == '0')
+                        {
+                            myTGA.Save($"{texturePath}_original.tga"); // 0 one is replaced with a tiled version.
+                        } else
+                        {
+                            myTGA.Save($"{texturePath}.tga");
+                        }
                         imageBmp.Dispose();
 
                         logString.Append($"{lumpType} : {type} : {lump.Name}\n");
@@ -462,17 +472,182 @@ namespace WAD2Quake3Shader
 
                 shaderString.Append($"\n}}\n");
             }
+            
+            foreach (var kvp in randomTilingTextures)
+            {
+                string baseName = $"-0{kvp.Key}";
+
+                List<string> srcImages = new List<string>();
+                foreach (string frame in kvp.Value)
+                {
+                    srcImages.Add(frame);
+                }
+                int variations = srcImages.Count;
+
+                int[,] matrix = generateUniqueMatrix(variations); // Not true to original or anything but should do the trick
+
+                int width = randomTilingPicsData[srcImages[0]].width;
+                int height = randomTilingPicsData[srcImages[0]].height;
+
+                int tiledWidth = width * matrix.GetLength(0);
+                int tiledHeight = height * matrix.GetLength(1);
+
+                Bitmap imageBmp = new Bitmap(tiledWidth, tiledHeight, PixelFormat.Format32bppArgb);
+                ByteImage image = Helpers.BitmapToByteArray(imageBmp);
+                imageBmp.Dispose();
+
+                for (int x= 0; x < matrix.GetLength(0);x++)
+                {
+                    for (int y = 0; y < matrix.GetLength(1); y++)
+                    {
+                        int startX = x * width;
+                        int startY = y * height;
+                        for (int yImg = 0; yImg < height; yImg++)
+                        {
+                            for (int xImg = 0; xImg < width; xImg++)
+                            {
+                                int targetX = startX + xImg;
+                                int targetY = startY + yImg;
+                                ByteImage srcImage = randomTilingPicsData[srcImages[matrix[x, y]]];
+                                image.imageData[image.stride * targetY + targetX * 4] = srcImage.imageData[yImg* srcImage.stride + xImg*4];
+                                image.imageData[image.stride * targetY + targetX * 4+1] = srcImage.imageData[yImg* srcImage.stride + xImg*4+1];
+                                image.imageData[image.stride * targetY + targetX * 4+2] = srcImage.imageData[yImg* srcImage.stride + xImg*4+2];
+                                image.imageData[image.stride * targetY + targetX * 4+3] = srcImage.imageData[yImg* srcImage.stride + xImg*4+3];
+
+
+                            }
+                        }
+                    }
+                }
+
+                imageBmp = Helpers.ByteArrayToBitmap(image);
+                //imageBmp.Save($"{textureName}.tga");
+
+                TGA myTGA = new TGA(imageBmp);
+                Directory.CreateDirectory("textures/wadConvert"); 
+                string baseTexturePath = fixUpShaderName($"textures/wadConvert/{baseName}");
+                myTGA.Save($"{baseTexturePath}.tga");
+                imageBmp.Dispose();
+
+            }
 
             File.AppendAllText("wadConvert.log", logString.ToString());
             Directory.CreateDirectory("shaders");
             File.AppendAllText("shaders/wadConvertShaders.shader", shaderString.ToString());
         }
 
+        static int[,] generateUniqueMatrix(int variations)
+        {
+            int sideMultiplier = 1;
+            while (sideMultiplier < variations)
+            {
+                sideMultiplier *= 2;
+            }
+            int[,] matrix = new int[sideMultiplier, sideMultiplier];
+            bool[,] filled = new bool[sideMultiplier, sideMultiplier];
+
+            int[] usages = new int[variations];
+
+            var rnd = new Shishua(new ulong[] { 1,2,3,4 });
+
+            float[] shortestDistances = new float[variations];
+
+            for (int y = 0; y < sideMultiplier; y++)
+            {
+                for (int x = 0; x < sideMultiplier; x++)
+                {
+                    float biggestShortestDistance = 0;
+
+                    List<int> biggestShortestDistanceCandidates = new List<int>();
+
+                    for (int i = 0; i < variations; i++)
+                    {
+                        shortestDistances[i] = float.PositiveInfinity;
+                        // Rate each variation for this place.
+                        // Rating is distance to the same variation in the existing matrix.
+                        for (int y2 = 0; y2 < sideMultiplier; y2++)
+                        {
+                            for (int x2 = 0; x2 < sideMultiplier; x2++)
+                            {
+                                if (filled[x2,y2] && matrix[x2,y2] == i)
+                                {
+                                    int smolX = Math.Min(x, x2);
+                                    int bigX = Math.Max(x, x2);
+                                    int smolY = Math.Min(y, y2);
+                                    int bigY = Math.Max(y, y2);
+                                    float shortestXDist = Math.Min(bigX-smolX, sideMultiplier-bigX + smolX);
+                                    float shortestYDist = Math.Min(bigY-smolY, sideMultiplier-bigY + smolY);
+                                    float shortestDistance = (float)Math.Sqrt(shortestXDist* shortestXDist+ shortestYDist* shortestYDist);
+                                    if(shortestDistances[i] > shortestDistance)
+                                    {
+                                        shortestDistances[i] = shortestDistance;
+                                    }
+                                }
+                            }
+                        }
+
+                        if(biggestShortestDistance < shortestDistances[i])
+                        {
+                            biggestShortestDistance = shortestDistances[i];
+                            biggestShortestDistanceCandidates.Clear();
+                            biggestShortestDistanceCandidates.Add(i);
+                        } else if (biggestShortestDistance == shortestDistances[i])
+                        {
+                            biggestShortestDistanceCandidates.Add(i);
+                        }
+
+                    }
+
+                    if(biggestShortestDistanceCandidates.Count == 1)
+                    {
+                        filled[x, y] = true;
+                        matrix[x, y] = biggestShortestDistanceCandidates[0];
+                        usages[biggestShortestDistanceCandidates[0]]++;
+                    } else
+                    {
+                        List<int> finalCandidates = new List<int>();
+                        int lowestUsageCount = int.MaxValue;
+                        for(int i = 0; i < biggestShortestDistanceCandidates.Count; i++)
+                        {
+                            if (usages[biggestShortestDistanceCandidates[i]] < lowestUsageCount)
+                            {
+                                finalCandidates.Clear();
+                                finalCandidates.Add(biggestShortestDistanceCandidates[i]);
+                            } else if (usages[biggestShortestDistanceCandidates[i]] == lowestUsageCount)
+                            {
+                                finalCandidates.Add(biggestShortestDistanceCandidates[i]);
+                            }
+                        }
+
+                        if (finalCandidates.Count == 1)
+                        {
+                            filled[x, y] = true;
+                            matrix[x, y] = finalCandidates[0];
+                            usages[finalCandidates[0]]++;
+                        }
+                        else
+                        {
+                            int pickedOne = rnd.NextInt(0,finalCandidates.Count);
+                            filled[x, y] = true;
+                            matrix[x, y] = finalCandidates[pickedOne];
+                            usages[finalCandidates[pickedOne]]++;
+                        }
+
+                    }
+
+                }
+            }
+
+
+
+            return matrix;
+        }
+
 
         static Regex badShaderNameChar = new Regex(@"[^-_\w\d:\\\/]",RegexOptions.Compiled|RegexOptions.IgnoreCase);
         static string fixUpShaderName(string shaderName)
         {
-            return badShaderNameChar.Replace(shaderName, "_");
+            return badShaderNameChar.Replace(shaderName, "_").ToLower();
         }
 
     }
