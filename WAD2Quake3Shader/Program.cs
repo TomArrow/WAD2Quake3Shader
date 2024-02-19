@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
 using Crews.Utility.TgaSharp;
 using nz.doom.WadParser;
 
@@ -15,7 +17,8 @@ namespace WAD2Quake3Shader
         Toggling,
         RandomTiling,
         LightEmitting,
-        Decal,
+        DecalDarken,
+        DecalBrighten,
     }
 
     enum LumpType { 
@@ -39,6 +42,11 @@ namespace WAD2Quake3Shader
             StringBuilder logString = new StringBuilder(); 
 
             Wad wad = WadParser.Parse(args[0]);
+
+            StringBuilder shaderString = new StringBuilder();
+
+            Dictionary<string, SortedSet<string>> togglingTextures = new Dictionary<string, SortedSet<string>>(StringComparer.InvariantCultureIgnoreCase);
+            Dictionary<string, SortedSet<string>> randomTilingTextures = new Dictionary<string, SortedSet<string>>(StringComparer.InvariantCultureIgnoreCase);
 
             foreach (Lump lump in wad.Lumps)
             {
@@ -125,19 +133,38 @@ namespace WAD2Quake3Shader
                             }
                         }
 
+                        if(type == TextureType.Toggling)
+                        {
+                            string key = textureName.Substring(2);
+                            if (!togglingTextures.ContainsKey(key))
+                            {
+                                togglingTextures[key] = new SortedSet<string>(StringComparer.InvariantCultureIgnoreCase);
+                            }
+                            togglingTextures[key].Add(textureName);
+                        }
+                        else if(type == TextureType.RandomTiling)
+                        {
+                            string key = textureName.Substring(2);
+                            if (!randomTilingTextures.ContainsKey(key))
+                            {
+                                randomTilingTextures[key] = new SortedSet<string>(StringComparer.InvariantCultureIgnoreCase);
+                            }
+                            randomTilingTextures[key].Add(textureName);
+                        }
+
 
                         Bitmap imageBmp = new Bitmap(width, height, PixelFormat.Format32bppArgb);
                         ByteImage image = Helpers.BitmapToByteArray(imageBmp);
                         imageBmp.Dispose();
 
-                        /*int maxPaletteOffset = 0;
+                        int maxPaletteOffset = 0;
                         for (int i=0;i< mip0PaletteOffsets.Length; i++)
                         {
                             if (mip0PaletteOffsets[i] > maxPaletteOffset)
                             {
                                 maxPaletteOffset = mip0PaletteOffsets[i];
                             }
-                        }*/
+                        }
 
                         bool transparentPixelsFound = false;
 
@@ -172,9 +199,190 @@ namespace WAD2Quake3Shader
                             }
                         }
 
-                        if (!transparentPixelsFound && type == TextureType.Transparent) // Probably a decal.
+                        /*if (!transparentPixelsFound && type == TextureType.Transparent) // Probably a decal.
                         {
-                            type = TextureType.Decal; 
+                            type = TextureType.DecalDarken; 
+                        }*/
+
+                        if (type == TextureType.Transparent && palette != null)
+                        {
+                            // Try to detect if we are dealing with a decal
+                            // Detect darkening decal
+                            bool maybeDecal = true;
+                            //bool maybeDarkenDecal = true;
+                            //bool maybeBrightenDecal = true;
+                            bool has255 = false;
+                            bool has0 = false;
+
+                            int lastColor = -1;
+                            int lastColor2 = 256;
+                            for (int i = 0; i <= maxPaletteOffset; i++)
+                            {
+                                if (palette[i * 3] != palette[i * 3 + 1] || palette[i * 3 + 2] != palette[i * 3])
+                                {
+                                    maybeDecal = false;
+                                    break;
+                                }
+                                /*if (palette[i * 3] <= lastColor) // Not reliable
+                                {
+                                    maybeBrightenDecal = false;
+                                }
+                                if (palette[i * 3] >= lastColor2)
+                                {
+                                    maybeDarkenDecal = false;
+                                }*/
+                                has255 = has255 || (palette[i * 3] == 255);
+                                has0 = has0 || (palette[i * 3] == 0);
+                                lastColor2 = lastColor = palette[i * 3];
+
+                            }
+                            if (maybeDecal)
+                            {
+                                if((!has255 && !has0) /*|| (!maybeBrightenDecal && !maybeDarkenDecal)*/)
+                                {
+                                    maybeDecal = false;
+                                }
+                                else
+                                {
+                                    if(has0 && !has255)
+                                    {
+                                        type = TextureType.DecalBrighten;
+                                    } else if(has255 && !has0)
+                                    {
+                                        type = TextureType.DecalDarken;
+                                    } else
+                                    {
+                                        // Look at edge pixels to tell them apart.
+                                        int averageTotal = 0;
+                                        int averageDivider = 0;
+                                        for(int x = 0; x < width; x++)
+                                        {
+                                            int paletteOffset1 = mip0PaletteOffsets[x];
+                                            int paletteOffset2 = mip0PaletteOffsets[(height-1) * width + x];
+                                            averageTotal += palette[paletteOffset1 * 3] + palette[paletteOffset2 * 3];
+                                            averageDivider+=2;
+                                        }
+                                        for(int y = 1; y < height-1; y++)
+                                        {
+                                            int paletteOffset1 = mip0PaletteOffsets[y * width];
+                                            int paletteOffset2 = mip0PaletteOffsets[y * width + (width-1)];
+                                            averageTotal += palette[paletteOffset1 * 3] + palette[paletteOffset2 * 3];
+                                            averageDivider+=2;
+                                        }
+                                        float average = (float)averageTotal / (float)averageDivider;
+                                        if(average > 127.0f)
+                                        {
+
+                                            type = TextureType.DecalDarken;
+                                        } else
+                                        {
+
+                                            type = TextureType.DecalBrighten;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        string texturePath = fixUpShaderName($"textures/wadConvert/{textureName}");
+
+                        if (type == TextureType.WaterFluid || type == TextureType.Transparent || type == TextureType.DecalDarken || type == TextureType.DecalBrighten || type == TextureType.LightEmitting)
+                        {
+                            shaderString.Append($"\n{texturePath}\n{{");
+                            shaderString.Append($"\n\tqer_editorimage {texturePath}");
+                            switch (type) {
+                                case TextureType.WaterFluid:
+                                    shaderString.Append($"\n\tsurfaceparm nonsolid");
+                                    shaderString.Append($"\n\tsurfaceparm nonopaque");
+                                    shaderString.Append($"\n\tsurfaceparm water");
+                                    shaderString.Append($"\n\tsurfaceparm trans");
+                                    shaderString.Append($"\n\tqer_trans 0.5");
+                                    shaderString.Append($"\n\tq3map_material Water");
+                                    shaderString.Append($"\n\ttessSize 100");
+                                    shaderString.Append($"\n\tdeformvertexes wave 100 sin 0 2.5 0 0.5");
+
+                                    shaderString.Append($"\n\t{{");
+                                    shaderString.Append($"\n\t\tmap {texturePath}");
+                                    shaderString.Append($"\n\t\tblendFunc GL_ONE GL_ONE_MINUS_SRC_ALPHA");
+                                    shaderString.Append($"\n\t\talphaGen const 0.8");
+                                    shaderString.Append($"\n\t\ttcMod turb 0 0.05 0 0.2");
+                                    shaderString.Append($"\n\t}}");
+
+                                    shaderString.Append($"\n\t{{");
+                                    shaderString.Append($"\n\t\tmap $lightmap");
+                                    shaderString.Append($"\n\t\tblendFunc GL_DST_COLOR GL_ZERO");
+                                    shaderString.Append($"\n\t}}");
+
+                                    shaderString.Append($"\n\t//{{");
+                                    shaderString.Append($"\n\t//\tmap textures/random_environment_maybe");
+                                    shaderString.Append($"\n\t//\tblendFunc GL_ONE GL_ONE");
+                                    shaderString.Append($"\n\t//\ttcGen environment");
+                                    shaderString.Append($"\n\t//\ttcMod turb 0 0.05 0 0.2");
+                                    shaderString.Append($"\n\t//}}");
+                                    break;
+                                case TextureType.Transparent:
+                                    shaderString.Append($"\n\tsurfaceparm alphashadow");
+                                    shaderString.Append($"\n\tsurfaceparm nonopaque");
+                                    shaderString.Append($"\n\tsurfaceparm trans");
+                                    shaderString.Append($"\n\tcull none");
+                                    shaderString.Append($"\n\tqer_trans 0.5");
+
+                                    shaderString.Append($"\n\t{{");
+                                    shaderString.Append($"\n\t\tmap {texturePath}");
+                                    shaderString.Append($"\n\t\tblendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA");
+                                    shaderString.Append($"\n\t\tdepthWrite");
+                                    shaderString.Append($"\n\t\talphaFunc GE128");
+                                    shaderString.Append($"\n\t}}");
+
+                                    shaderString.Append($"\n\t{{");
+                                    shaderString.Append($"\n\t\tmap $lightmap");
+                                    shaderString.Append($"\n\t\tblendFunc filter");
+                                    shaderString.Append($"\n\t\tdepthFunc equal");
+                                    shaderString.Append($"\n\t}}");
+                                    break;
+                                case TextureType.DecalDarken: // Simple multiply
+                                    shaderString.Append($"\n\tpolygonOffset");
+                                    shaderString.Append($"\n\tq3map_nolightmap");
+                                    shaderString.Append($"\n\tqer_trans 0.5");
+
+                                    shaderString.Append($"\n\t{{");
+                                    shaderString.Append($"\n\t\tmap {texturePath}");
+                                    shaderString.Append($"\n\t\tblendFunc filter");
+                                    shaderString.Append($"\n\t}}");
+                                    break;
+                                case TextureType.DecalBrighten: // Simple multiply
+                                    shaderString.Append($"\n\tpolygonOffset");
+                                    shaderString.Append($"\n\tq3map_nolightmap");
+                                    shaderString.Append($"\n\tqer_trans 0.5");
+
+                                    shaderString.Append($"\n\t{{");
+                                    shaderString.Append($"\n\t\tmap {texturePath}");
+                                    shaderString.Append($"\n\t\tblendFunc GL_ONE GL_ONE");
+                                    shaderString.Append($"\n\t}}");
+                                    break;
+                                case TextureType.LightEmitting:
+                                    shaderString.Append($"\n\tq3map_surfacelight 1500");
+                                    shaderString.Append($"\n\tq3map_lightsubdivide 64");
+                                    shaderString.Append($"\n\tq3map_nolightmap");
+
+                                    shaderString.Append($"\n\t{{");
+                                    shaderString.Append($"\n\t\tmap {texturePath}");
+                                    shaderString.Append($"\n\t\trgbGen const ( 0.9 0.9 0.9 )");
+                                    shaderString.Append($"\n\t}}");
+
+                                    shaderString.Append($"\n\t{{");
+                                    shaderString.Append($"\n\t\tmap {texturePath}");
+                                    shaderString.Append($"\n\t\tblendFunc GL_ONE GL_ONE");
+                                    shaderString.Append($"\n\t\trgbGen const ( 0.1 0.1 0.1 )");
+                                    shaderString.Append($"\n\t\tglow");
+                                    shaderString.Append($"\n\t}}");
+                                    break;
+                            }
+
+
+
+
+                            shaderString.Append($"\n}}\n");
                         }
 
 
@@ -182,8 +390,8 @@ namespace WAD2Quake3Shader
                         //imageBmp.Save($"{textureName}.tga");
 
                         TGA myTGA = new TGA(imageBmp);
-                        Directory.CreateDirectory("textures");
-                        myTGA.Save($"textures/{textureName}.tga");
+                        Directory.CreateDirectory("textures/wadConvert");
+                        myTGA.Save($"{texturePath}.tga");
                         imageBmp.Dispose();
 
                         logString.Append($"{lumpType} : {type} : {lump.Name}\n");
@@ -196,9 +404,53 @@ namespace WAD2Quake3Shader
 
             }
 
+            foreach(var kvp in togglingTextures)
+            {
+                string baseName = $"+0{kvp.Key}";
+
+                string baseTexturePath = fixUpShaderName($"textures/wadConvert/{baseName}");
+
+                shaderString.Append($"\n{baseTexturePath}\n{{");
+                shaderString.Append($"\n\tqer_editorimage {baseTexturePath}");
+                shaderString.Append($"\n\tcull disable");
+
+                shaderString.Append($"\n\t{{\n");
+                int index = 0;
+                foreach (string frame in kvp.Value)
+                {
+                    string texturePath = fixUpShaderName($"textures/wadConvert/{frame}");
+                    if (index++ == 0)
+                    {
+                        shaderString.Append($"\t\tanimMap 0.1 {texturePath}");
+                    }
+                    else
+                    {
+                        shaderString.Append($" {texturePath}");
+                    }
+                }
+                shaderString.Append($"\n\t}}");
+
+                shaderString.Append($"\n\t{{");
+                shaderString.Append($"\n\t\tmap $lightmap");
+                shaderString.Append($"\n\t\tblendFunc GL_DST_COLOR GL_ZERO");
+                shaderString.Append($"\n\t}}");
+
+
+                shaderString.Append($"\n}}\n");
+            }
+
             File.AppendAllText("wadConvert.log", logString.ToString());
+            Directory.CreateDirectory("shaders");
+            File.AppendAllText("shaders/wadConvertShaders.shader", shaderString.ToString());
 
             return 0;
         }
+
+        static Regex badShaderNameChar = new Regex(@"[^-_\w\d:\\\/]",RegexOptions.Compiled|RegexOptions.IgnoreCase);
+        static string fixUpShaderName(string shaderName)
+        {
+            return badShaderNameChar.Replace(shaderName, "_");
+        }
+
     }
 }
