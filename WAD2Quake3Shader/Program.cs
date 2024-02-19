@@ -39,9 +39,28 @@ namespace WAD2Quake3Shader
                 return 2;
             }
 
-            StringBuilder logString = new StringBuilder(); 
+            if(args[0] != "*")
+            {
+                ConvertWad(args[0]);
+            }
+            else
+            {
+                string[] wads = Directory.GetFiles(".", "*.wad");
+                foreach(string wad in wads)
+                {
+                    ConvertWad(wad);
+                }
+            }
 
-            Wad wad = WadParser.Parse(args[0]);
+            return 0;
+        }
+
+        static void ConvertWad(string wadPath)
+        {
+
+            StringBuilder logString = new StringBuilder();
+
+            Wad wad = WadParser.Parse(wadPath);
 
             StringBuilder shaderString = new StringBuilder();
 
@@ -50,7 +69,7 @@ namespace WAD2Quake3Shader
 
             foreach (Lump lump in wad.Lumps)
             {
-                if(lump.LumpType != 0x40 && lump.LumpType != 0x42 && lump.LumpType != 0x43 && lump.LumpType != 0x46)
+                if (lump.LumpType != 0x40 && lump.LumpType != 0x42 && lump.LumpType != 0x43 && lump.LumpType != 0x46)
                 {
                     Console.WriteLine($"Lump '{lump.Name}' is not of supported type, but type {lump.LumpType}");
                     continue;
@@ -60,12 +79,13 @@ namespace WAD2Quake3Shader
 
                 using (MemoryStream ms = new MemoryStream(lump.Bytes))
                 {
-                    using(BinaryReader br = new BinaryReader(ms))
+                    using (BinaryReader br = new BinaryReader(ms))
                     {
                         string textureName = lump.Name;
-                        if (lump.LumpType == 0x40 || lump.LumpType == 0x43) {
+                        if (lump.LumpType == 0x40 || lump.LumpType == 0x43)
+                        {
                             textureName = Encoding.Latin1.GetString(br.ReadBytes(16)).TrimEnd('\0');
-                            if(lump.Name != textureName)
+                            if (lump.Name != textureName)
                             {
                                 Console.WriteLine($"Lump/texture name mismatch: Lump '{lump.Name}', texture name '{textureName}'");
                                 textureName = lump.Name; // Weird shit.
@@ -73,12 +93,12 @@ namespace WAD2Quake3Shader
                         }
                         int width = 128;
                         int height = 128;
-                        if(lump.LumpType != 0x46)
+                        if (lump.LumpType != 0x46)
                         {
                             width = br.ReadInt32();
                             height = br.ReadInt32();
                         }
-                        if(lump.LumpType == 0x46)
+                        if (lump.LumpType == 0x46)
                         {
                             int fontRowCount = br.ReadInt32();
                             int fontRowHeight = br.ReadInt32();
@@ -90,15 +110,15 @@ namespace WAD2Quake3Shader
                             int mipOffset0 = br.ReadInt32();
                             int mipOffset1 = br.ReadInt32();
                             int mipOffset2 = br.ReadInt32();
-                            int mipOffset3 = br.ReadInt32(); 
+                            int mipOffset3 = br.ReadInt32();
                         }
-                        byte[] mip0PaletteOffsets = br.ReadBytes(width*height);
+                        byte[] mip0PaletteOffsets = br.ReadBytes(width * height);
 
                         if (lump.LumpType == 0x40 || lump.LumpType == 0x43)
                         {
-                            byte[] mip1PaletteOffsets = br.ReadBytes(width * height /4);
-                            byte[] mip2PaletteOffsets = br.ReadBytes(width * height /16);
-                            byte[] mip3PaletteOffsets = br.ReadBytes(width * height /64);
+                            byte[] mip1PaletteOffsets = br.ReadBytes(width * height / 4);
+                            byte[] mip2PaletteOffsets = br.ReadBytes(width * height / 16);
+                            byte[] mip3PaletteOffsets = br.ReadBytes(width * height / 64);
                         }
 
                         byte[] randomShit = br.ReadBytes(2);
@@ -111,7 +131,7 @@ namespace WAD2Quake3Shader
                         }
 
                         TextureType type = TextureType.Normal;
-                        if(textureName.Length > 0)
+                        if (textureName.Length > 0)
                         {
                             switch (textureName[0])
                             {
@@ -133,7 +153,7 @@ namespace WAD2Quake3Shader
                             }
                         }
 
-                        if(type == TextureType.Toggling)
+                        if (type == TextureType.Toggling)
                         {
                             string key = textureName.Substring(2);
                             if (!togglingTextures.ContainsKey(key))
@@ -142,7 +162,7 @@ namespace WAD2Quake3Shader
                             }
                             togglingTextures[key].Add(textureName);
                         }
-                        else if(type == TextureType.RandomTiling)
+                        else if (type == TextureType.RandomTiling)
                         {
                             string key = textureName.Substring(2);
                             if (!randomTilingTextures.ContainsKey(key))
@@ -158,7 +178,7 @@ namespace WAD2Quake3Shader
                         imageBmp.Dispose();
 
                         int maxPaletteOffset = 0;
-                        for (int i=0;i< mip0PaletteOffsets.Length; i++)
+                        for (int i = 0; i < mip0PaletteOffsets.Length; i++)
                         {
                             if (mip0PaletteOffsets[i] > maxPaletteOffset)
                             {
@@ -168,9 +188,9 @@ namespace WAD2Quake3Shader
 
                         bool transparentPixelsFound = false;
 
-                        for(int y= 0; y < height; y++)
+                        for (int y = 0; y < height; y++)
                         {
-                            for(int x = 0; x < width; x++)
+                            for (int x = 0; x < width; x++)
                             {
                                 int paletteOffset = mip0PaletteOffsets[y * width + x];
                                 if (palette != null)
@@ -238,43 +258,46 @@ namespace WAD2Quake3Shader
                             }
                             if (maybeDecal)
                             {
-                                if((!has255 && !has0) /*|| (!maybeBrightenDecal && !maybeDarkenDecal)*/)
+                                if ((!has255 && !has0) /*|| (!maybeBrightenDecal && !maybeDarkenDecal)*/)
                                 {
                                     maybeDecal = false;
                                 }
                                 else
                                 {
-                                    if(has0 && !has255)
+                                    if (has0 && !has255)
                                     {
                                         type = TextureType.DecalBrighten;
-                                    } else if(has255 && !has0)
+                                    }
+                                    else if (has255 && !has0)
                                     {
                                         type = TextureType.DecalDarken;
-                                    } else
+                                    }
+                                    else
                                     {
                                         // Look at edge pixels to tell them apart.
                                         int averageTotal = 0;
                                         int averageDivider = 0;
-                                        for(int x = 0; x < width; x++)
+                                        for (int x = 0; x < width; x++)
                                         {
                                             int paletteOffset1 = mip0PaletteOffsets[x];
-                                            int paletteOffset2 = mip0PaletteOffsets[(height-1) * width + x];
+                                            int paletteOffset2 = mip0PaletteOffsets[(height - 1) * width + x];
                                             averageTotal += palette[paletteOffset1 * 3] + palette[paletteOffset2 * 3];
-                                            averageDivider+=2;
+                                            averageDivider += 2;
                                         }
-                                        for(int y = 1; y < height-1; y++)
+                                        for (int y = 1; y < height - 1; y++)
                                         {
                                             int paletteOffset1 = mip0PaletteOffsets[y * width];
-                                            int paletteOffset2 = mip0PaletteOffsets[y * width + (width-1)];
+                                            int paletteOffset2 = mip0PaletteOffsets[y * width + (width - 1)];
                                             averageTotal += palette[paletteOffset1 * 3] + palette[paletteOffset2 * 3];
-                                            averageDivider+=2;
+                                            averageDivider += 2;
                                         }
                                         float average = (float)averageTotal / (float)averageDivider;
-                                        if(average > 127.0f)
+                                        if (average > 127.0f)
                                         {
 
                                             type = TextureType.DecalDarken;
-                                        } else
+                                        }
+                                        else
                                         {
 
                                             type = TextureType.DecalBrighten;
@@ -290,7 +313,8 @@ namespace WAD2Quake3Shader
                         {
                             shaderString.Append($"\n{texturePath}\n{{");
                             shaderString.Append($"\n\tqer_editorimage {texturePath}");
-                            switch (type) {
+                            switch (type)
+                            {
                                 case TextureType.WaterFluid:
                                     shaderString.Append($"\n\tsurfaceparm nonsolid");
                                     shaderString.Append($"\n\tsurfaceparm nonopaque");
@@ -404,7 +428,7 @@ namespace WAD2Quake3Shader
 
             }
 
-            foreach(var kvp in togglingTextures)
+            foreach (var kvp in togglingTextures)
             {
                 string baseName = $"+0{kvp.Key}";
 
@@ -442,9 +466,8 @@ namespace WAD2Quake3Shader
             File.AppendAllText("wadConvert.log", logString.ToString());
             Directory.CreateDirectory("shaders");
             File.AppendAllText("shaders/wadConvertShaders.shader", shaderString.ToString());
-
-            return 0;
         }
+
 
         static Regex badShaderNameChar = new Regex(@"[^-_\w\d:\\\/]",RegexOptions.Compiled|RegexOptions.IgnoreCase);
         static string fixUpShaderName(string shaderName)

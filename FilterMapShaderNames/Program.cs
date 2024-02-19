@@ -16,7 +16,7 @@ namespace FilterMapShaderNames
             string srcText = File.ReadAllText(args[0]);
 
             string destText = findShader.Replace(srcText, (match) => {
-                return match.Groups["vecs"] + " " + fixUpShaderName(match.Groups["shaderName"].Value) + " [";
+                return match.Groups["vecs"] + " wadConvert/" + fixUpShaderName(match.Groups["shaderName"].Value.Trim()) + " [";
             });
 
             File.WriteAllText($"{args[0]}.filtered.map", destText);
