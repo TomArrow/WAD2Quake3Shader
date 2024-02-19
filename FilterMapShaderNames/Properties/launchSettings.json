@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "FilterMapShaderNames": {
+      "commandName": "Project",
+      "commandLineArgs": "test.map"
+    }
+  }
+}
