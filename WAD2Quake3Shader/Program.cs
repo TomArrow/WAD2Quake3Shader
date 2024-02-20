@@ -65,6 +65,7 @@ namespace WAD2Quake3Shader
             Wad wad = WadParser.Parse(wadPath);
 
             StringBuilder shaderString = new StringBuilder();
+            StringBuilder shaderStringPOT = new StringBuilder();
 
             Dictionary<string, SortedSet<string>> togglingTextures = new Dictionary<string, SortedSet<string>>(StringComparer.InvariantCultureIgnoreCase);
             Dictionary<string, SortedSet<string>> randomTilingTextures = new Dictionary<string, SortedSet<string>>(StringComparer.InvariantCultureIgnoreCase);
@@ -89,7 +90,7 @@ namespace WAD2Quake3Shader
                         {
                             textureName = Encoding.Latin1.GetString(br.ReadBytes(16));
                             textureName = textureName.Substring(0,textureName.IndexOf('\0'));
-                            if (lump.Name != textureName)
+                            if (!lump.Name.Equals(textureName,StringComparison.InvariantCultureIgnoreCase))
                             {
                                 Console.WriteLine($"Lump/texture name mismatch: Lump '{lump.Name}', texture name '{textureName}'");
                                 textureName = lump.Name; // Weird shit.
@@ -482,23 +483,23 @@ namespace WAD2Quake3Shader
 
                             if (!shaderWritten)
                             {
-                                shaderString.Append($"\n\t{{");
-                                shaderString.Append($"\n\t\tmap $lightmap");
-                                shaderString.Append($"\n\t\trgbGen identity");
-                                shaderString.Append($"\n\t}}");
+                                shaderStringPOT.Append($"\n\t{{");
+                                shaderStringPOT.Append($"\n\t\tmap $lightmap");
+                                shaderStringPOT.Append($"\n\t\trgbGen identity");
+                                shaderStringPOT.Append($"\n\t}}");
 
-                                shaderString.Append($"\n\t{{");
+                                shaderStringPOT.Append($"\n\t{{");
                                 if (resizedImage != null)
                                 {
-                                    shaderString.Append($"\n\t\tmap {texturePath}_pot");
+                                    shaderStringPOT.Append($"\n\t\tmap {texturePath}_pot");
                                 }
                                 else
                                 {
-                                    shaderString.Append($"\n\t\tmap {texturePath}");
+                                    shaderStringPOT.Append($"\n\t\tmap {texturePath}");
                                 }
-                                shaderString.Append($"\n\t\trgbGen identity");
-                                shaderString.Append($"\n\t\tblendFunc filter");
-                                shaderString.Append($"\n\t}}");
+                                shaderStringPOT.Append($"\n\t\trgbGen identity");
+                                shaderStringPOT.Append($"\n\t\tblendFunc filter");
+                                shaderStringPOT.Append($"\n\t}}");
                             }
 
 
@@ -648,15 +649,15 @@ namespace WAD2Quake3Shader
                 // Resize to power of 2 if needed.
                 int potWidth = 1;
                 int potHeight = 1;
-                while (potWidth < width)
+                while (potWidth < tiledWidth)
                 {
                     potWidth *= 2;
                 }
-                while (potHeight < height)
+                while (potHeight < tiledHeight)
                 {
                     potHeight *= 2;
                 }
-                bool mustResize = potWidth != width || potHeight != height;
+                bool mustResize = potWidth != tiledWidth || potHeight != tiledHeight;
 
                 if (mustResize)
                 {
