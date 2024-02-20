@@ -87,7 +87,8 @@ namespace WAD2Quake3Shader
                         string textureName = lump.Name;
                         if (lump.LumpType == 0x40 || lump.LumpType == 0x43)
                         {
-                            textureName = Encoding.Latin1.GetString(br.ReadBytes(16)).TrimEnd('\0');
+                            textureName = Encoding.Latin1.GetString(br.ReadBytes(16));
+                            textureName = textureName.Substring(0,textureName.IndexOf('\0'));
                             if (lump.Name != textureName)
                             {
                                 Console.WriteLine($"Lump/texture name mismatch: Lump '{lump.Name}', texture name '{textureName}'");
