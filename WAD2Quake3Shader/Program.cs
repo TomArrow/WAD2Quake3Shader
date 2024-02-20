@@ -12,15 +12,17 @@ using nz.doom.WadParser;
 
 namespace WAD2Quake3Shader
 {
+    [Flags]
     enum TextureType { 
-        Normal,
-        Transparent,
-        WaterFluid,
-        Toggling,
-        RandomTiling,
-        LightEmitting,
-        DecalDarken,
-        DecalBrighten,
+        Normal=(1<<0),
+        Transparent = (1 << 1),
+        WaterFluid = (1 << 2),
+        Toggling = (1 << 3),
+        RandomTiling = (1 << 4),
+        LightEmitting = (1 << 5),
+        DecalDarken = (1 << 6),
+        DecalBrighten = (1 << 7),
+        Scroll = (1 << 8),
     }
 
     enum LumpType { 
@@ -440,19 +442,19 @@ namespace WAD2Quake3Shader
                                     break;
                                 case TextureType.LightEmitting:
                                     shaderWritten = true;
-                                    shaderString.Append($"\n\tq3map_surfacelight 1500");
+                                    shaderString.Append($"\n\tq3map_surfacelight 500");
                                     shaderString.Append($"\n\tq3map_lightsubdivide 64");
                                     shaderString.Append($"\n\tq3map_nolightmap");
 
                                     shaderString.Append($"\n\t{{");
                                     shaderString.Append($"\n\t\tmap {texturePath}");
-                                    shaderString.Append($"\n\t\trgbGen const ( 0.9 0.9 0.9 )");
+                                    shaderString.Append($"\n\t\trgbGen const ( 0.7 0.7 0.7 )");
                                     shaderString.Append($"\n\t}}");
 
                                     shaderString.Append($"\n\t{{");
                                     shaderString.Append($"\n\t\tmap {texturePath}");
                                     shaderString.Append($"\n\t\tblendFunc GL_ONE GL_ONE");
-                                    shaderString.Append($"\n\t\trgbGen const ( 0.1 0.1 0.1 )");
+                                    shaderString.Append($"\n\t\trgbGen const ( 0.3 0.3 0.3 )");
                                     shaderString.Append($"\n\t\tglow");
                                     shaderString.Append($"\n\t}}");
                                     break;
