@@ -2,7 +2,7 @@
   "profiles": {
     "WAD2Quake3Shader": {
       "commandName": "Project",
-      "commandLineArgs": "gfx.wad"
+      "commandLineArgs": "as_tundra.wad"
     }
   }
 }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Numerics;
 using System.Text;
 using System.Text.RegularExpressions;
 using Crews.Utility.TgaSharp;
@@ -174,6 +175,26 @@ namespace WAD2Quake3Shader
                             randomTilingTextures[key].Add(textureName);
                         }
 
+                        int potWidth = 1;
+                        int potHeight = 1;
+                        while(potWidth < width)
+                        {
+                            potWidth *= 2;
+                        }
+                        while(potHeight < height)
+                        {
+                            potHeight *= 2;
+                        }
+
+                        bool mustResize = potWidth != width || potHeight != height;
+
+                        ByteImage resizedImage = null;
+                        if (mustResize)
+                        {
+                            Bitmap imageBmp2 = new Bitmap(potWidth, potHeight, PixelFormat.Format32bppArgb);
+                            resizedImage = Helpers.BitmapToByteArray(imageBmp2);
+                            imageBmp2.Dispose();
+                        }
 
                         Bitmap imageBmp = new Bitmap(width, height, PixelFormat.Format32bppArgb);
                         ByteImage image = Helpers.BitmapToByteArray(imageBmp);
@@ -219,6 +240,11 @@ namespace WAD2Quake3Shader
                                     transparentPixelsFound = true;
                                 }
                             }
+                        }
+
+                        if (resizedImage != null)
+                        {
+                            ResizeImage(image, resizedImage);
                         }
 
                         randomTilingPicsData[textureName] = image;
@@ -313,13 +339,15 @@ namespace WAD2Quake3Shader
 
                         string texturePath = fixUpShaderName($"textures/wadConvert/{textureName}");
 
-                        if (type == TextureType.WaterFluid || type == TextureType.Transparent || type == TextureType.DecalDarken || type == TextureType.DecalBrighten || type == TextureType.LightEmitting)
+                        if (type == TextureType.WaterFluid || type == TextureType.Transparent || type == TextureType.DecalDarken || type == TextureType.DecalBrighten || type == TextureType.LightEmitting || resizedImage != null)
                         {
+                            bool shaderWritten = false;
                             shaderString.Append($"\n{texturePath}\n{{");
                             shaderString.Append($"\n\tqer_editorimage {texturePath}");
                             switch (type)
                             {
                                 case TextureType.WaterFluid:
+                                    shaderWritten = true;
                                     shaderString.Append($"\n\tsurfaceparm nonsolid");
                                     shaderString.Append($"\n\tsurfaceparm nonopaque");
                                     shaderString.Append($"\n\tsurfaceparm water");
@@ -330,15 +358,23 @@ namespace WAD2Quake3Shader
                                     shaderString.Append($"\n\tdeformvertexes wave 100 sin 0 2.5 0 0.5");
 
                                     shaderString.Append($"\n\t{{");
-                                    shaderString.Append($"\n\t\tmap {texturePath}");
+                                    if(resizedImage != null)
+                                    {
+                                        shaderString.Append($"\n\t\tmap {texturePath}_pot");
+                                    } else
+                                    {
+                                        shaderString.Append($"\n\t\tmap {texturePath}");
+                                    }
                                     shaderString.Append($"\n\t\tblendFunc GL_ONE GL_ONE_MINUS_SRC_ALPHA");
                                     shaderString.Append($"\n\t\talphaGen const 0.8");
                                     shaderString.Append($"\n\t\ttcMod turb 0 0.05 0 0.2");
+                                    shaderString.Append($"\n\t\trgbGen identity");
                                     shaderString.Append($"\n\t}}");
 
                                     shaderString.Append($"\n\t{{");
                                     shaderString.Append($"\n\t\tmap $lightmap");
                                     shaderString.Append($"\n\t\tblendFunc GL_DST_COLOR GL_ZERO");
+                                    shaderString.Append($"\n\t\trgbGen identity");
                                     shaderString.Append($"\n\t}}");
 
                                     shaderString.Append($"\n\t//{{");
@@ -349,6 +385,7 @@ namespace WAD2Quake3Shader
                                     shaderString.Append($"\n\t//}}");
                                     break;
                                 case TextureType.Transparent:
+                                    shaderWritten = true;
                                     shaderString.Append($"\n\tsurfaceparm alphashadow");
                                     shaderString.Append($"\n\tsurfaceparm nonopaque");
                                     shaderString.Append($"\n\tsurfaceparm trans");
@@ -356,45 +393,80 @@ namespace WAD2Quake3Shader
                                     shaderString.Append($"\n\tqer_trans 0.5");
 
                                     shaderString.Append($"\n\t{{");
-                                    shaderString.Append($"\n\t\tmap {texturePath}");
+                                    if (resizedImage != null)
+                                    {
+                                        shaderString.Append($"\n\t\tmap {texturePath}_pot");
+                                    }
+                                    else
+                                    {
+                                        shaderString.Append($"\n\t\tmap {texturePath}");
+                                    }
                                     shaderString.Append($"\n\t\tblendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA");
                                     shaderString.Append($"\n\t\tdepthWrite");
                                     shaderString.Append($"\n\t\talphaFunc GE128");
+                                    shaderString.Append($"\n\t\trgbGen identity");
                                     shaderString.Append($"\n\t}}");
 
                                     shaderString.Append($"\n\t{{");
                                     shaderString.Append($"\n\t\tmap $lightmap");
                                     shaderString.Append($"\n\t\tblendFunc filter");
                                     shaderString.Append($"\n\t\tdepthFunc equal");
+                                    shaderString.Append($"\n\t\trgbGen identity");
                                     shaderString.Append($"\n\t}}");
                                     break;
                                 case TextureType.DecalDarken: // Simple multiply
+                                    shaderWritten = true;
                                     shaderString.Append($"\n\tpolygonOffset");
                                     shaderString.Append($"\n\tq3map_nolightmap");
                                     shaderString.Append($"\n\tqer_trans 0.5");
 
                                     shaderString.Append($"\n\t{{");
-                                    shaderString.Append($"\n\t\tmap {texturePath}");
+                                    if (resizedImage != null)
+                                    {
+                                        shaderString.Append($"\n\t\tmap {texturePath}_pot");
+                                    }
+                                    else
+                                    {
+                                        shaderString.Append($"\n\t\tmap {texturePath}");
+                                    }
+                                    shaderString.Append($"\n\t\trgbGen identity");
                                     shaderString.Append($"\n\t\tblendFunc filter");
                                     shaderString.Append($"\n\t}}");
                                     break;
                                 case TextureType.DecalBrighten: // Simple multiply
+                                    shaderWritten = true;
                                     shaderString.Append($"\n\tpolygonOffset");
                                     shaderString.Append($"\n\tq3map_nolightmap");
                                     shaderString.Append($"\n\tqer_trans 0.5");
 
                                     shaderString.Append($"\n\t{{");
-                                    shaderString.Append($"\n\t\tmap {texturePath}");
+                                    if (resizedImage != null)
+                                    {
+                                        shaderString.Append($"\n\t\tmap {texturePath}_pot");
+                                    }
+                                    else
+                                    {
+                                        shaderString.Append($"\n\t\tmap {texturePath}");
+                                    }
                                     shaderString.Append($"\n\t\tblendFunc GL_ONE GL_ONE");
+                                    shaderString.Append($"\n\t\trgbGen identity");
                                     shaderString.Append($"\n\t}}");
                                     break;
                                 case TextureType.LightEmitting:
+                                    shaderWritten = true;
                                     shaderString.Append($"\n\tq3map_surfacelight 1500");
                                     shaderString.Append($"\n\tq3map_lightsubdivide 64");
                                     shaderString.Append($"\n\tq3map_nolightmap");
 
                                     shaderString.Append($"\n\t{{");
-                                    shaderString.Append($"\n\t\tmap {texturePath}");
+                                    if (resizedImage != null)
+                                    {
+                                        shaderString.Append($"\n\t\tmap {texturePath}_pot");
+                                    }
+                                    else
+                                    {
+                                        shaderString.Append($"\n\t\tmap {texturePath}");
+                                    }
                                     shaderString.Append($"\n\t\trgbGen const ( 0.9 0.9 0.9 )");
                                     shaderString.Append($"\n\t}}");
 
@@ -407,11 +479,32 @@ namespace WAD2Quake3Shader
                                     break;
                             }
 
+                            if (!shaderWritten)
+                            {
+                                shaderString.Append($"\n\t{{");
+                                shaderString.Append($"\n\t\tmap $lightmap");
+                                shaderString.Append($"\n\t\trgbGen identity");
+                                shaderString.Append($"\n\t}}");
+
+                                shaderString.Append($"\n\t{{");
+                                if (resizedImage != null)
+                                {
+                                    shaderString.Append($"\n\t\tmap {texturePath}_pot");
+                                }
+                                else
+                                {
+                                    shaderString.Append($"\n\t\tmap {texturePath}");
+                                }
+                                shaderString.Append($"\n\t\trgbGen identity");
+                                shaderString.Append($"\n\t\tblendFunc filter");
+                                shaderString.Append($"\n\t}}");
+                            }
 
 
 
                             shaderString.Append($"\n}}\n");
                         }
+
 
 
                         imageBmp = Helpers.ByteArrayToBitmap(image);
@@ -427,6 +520,23 @@ namespace WAD2Quake3Shader
                             myTGA.Save($"{texturePath}.tga");
                         }
                         imageBmp.Dispose();
+
+                        if (resizedImage != null)
+                        {
+                            imageBmp = Helpers.ByteArrayToBitmap(resizedImage);
+                            //imageBmp.Save($"{textureName}.tga");
+
+                            myTGA = new TGA(imageBmp);
+                            if (type == TextureType.RandomTiling && textureName.Length > 1 && textureName[1] == '0')
+                            {
+                                myTGA.Save($"{texturePath}_original_pot.tga"); // 0 one is replaced with a tiled version.
+                            }
+                            else
+                            {
+                                myTGA.Save($"{texturePath}_pot.tga");
+                            }
+                            imageBmp.Dispose();
+                        }
 
                         logString.Append($"{lumpType} : {type} : {lump.Name}\n");
                         Console.WriteLine(lump.Name);
@@ -455,7 +565,7 @@ namespace WAD2Quake3Shader
                     string texturePath = fixUpShaderName($"textures/wadConvert/{frame}");
                     if (index++ == 0)
                     {
-                        shaderString.Append($"\t\tanimMap 0.1 {texturePath}");
+                        shaderString.Append($"\t\tanimMap 10 {texturePath}");
                     }
                     else
                     {
@@ -520,6 +630,10 @@ namespace WAD2Quake3Shader
                     }
                 }
 
+
+
+
+
                 imageBmp = Helpers.ByteArrayToBitmap(image);
                 //imageBmp.Save($"{textureName}.tga");
 
@@ -528,6 +642,63 @@ namespace WAD2Quake3Shader
                 string baseTexturePath = fixUpShaderName($"textures/wadConvert/{baseName}");
                 myTGA.Save($"{baseTexturePath}.tga");
                 imageBmp.Dispose();
+
+
+                // Resize to power of 2 if needed.
+                int potWidth = 1;
+                int potHeight = 1;
+                while (potWidth < width)
+                {
+                    potWidth *= 2;
+                }
+                while (potHeight < height)
+                {
+                    potHeight *= 2;
+                }
+                bool mustResize = potWidth != width || potHeight != height;
+
+                if (mustResize)
+                {
+                    ByteImage resizedImage = null;
+                    Bitmap imageBmp2 = new Bitmap(potWidth, potHeight, PixelFormat.Format32bppArgb);
+                    resizedImage = Helpers.BitmapToByteArray(imageBmp2);
+                    imageBmp2.Dispose();
+
+                    ResizeImage(image, resizedImage);
+
+                    imageBmp = Helpers.ByteArrayToBitmap(resizedImage);
+
+                    myTGA = new TGA(imageBmp);
+                    myTGA.Save($"{baseTexturePath}_pot.tga");
+                    imageBmp.Dispose();
+                   
+                    // Add shader to have old scale editorimage (for correct compile), but POT image to be used by the game (so it loads them, as some games demand POT)
+                    shaderString.Append($"\n{baseTexturePath}\n{{");
+                    shaderString.Append($"\n\tqer_editorimage {baseTexturePath}");
+
+                    shaderString.Append($"\n\t{{");
+                    shaderString.Append($"\n\t\tmap $lightmap");
+                    shaderString.Append($"\n\t\trgbGen identity");
+                    shaderString.Append($"\n\t}}");
+
+                    shaderString.Append($"\n\t{{");
+                    if (resizedImage != null)
+                    {
+                        shaderString.Append($"\n\t\tmap {baseTexturePath}_pot");
+                    }
+                    else
+                    {
+                        shaderString.Append($"\n\t\tmap {baseTexturePath}");
+                    }
+                    shaderString.Append($"\n\t\trgbGen identity");
+                    shaderString.Append($"\n\t\tblendFunc filter");
+                    shaderString.Append($"\n\t}}");
+
+
+
+                    shaderString.Append($"\n}}\n");
+                }
+
 
             }
 
@@ -641,6 +812,83 @@ namespace WAD2Quake3Shader
 
 
             return matrix;
+        }
+
+        static void ResizeImage(ByteImage original, ByteImage result) // Really ugly bilinear implementation, probably unperformant af. But works. Shrug.
+        {
+            bool scaleY = original.height != result.height;
+            bool scaleX = original.width != result.width;
+
+            double smolRatioX = (double)(original.width-1) / (double)(result.width-1);
+            double smolRatioY = (double)(original.height-1) / (double)(result.height-1);
+
+            for (int x = 0; x < result.width; x++)
+            {
+                for (int y = 0; y < result.height; y++)
+                {
+                    double sourceX = (double)x * smolRatioX;
+                    double sourceY = (double)y * smolRatioY;
+
+                    int sourceXLow = scaleX ? (int)(Math.Floor(sourceX)+0.5) : x;
+                    int sourceXHigh = scaleX ? (int)(Math.Ceiling(sourceX)+0.5) : x;
+                    int sourceYLow = scaleY ? (int)(Math.Floor(sourceY)+0.5) : y;
+                    int sourceYHigh = scaleY ? (int)(Math.Ceiling(sourceY)+0.5) : y;
+
+                    double sourceXLowWeight = 1.0 - sourceX + (double)sourceXLow;
+                    double sourceXHighWeight = 1.0 - (double)sourceXHigh + sourceX;
+                    double sourceYLowWeight = 1.0 - sourceY + (double)sourceYLow;
+                    double sourceYHighWeight = 1.0 - (double)sourceYHigh + sourceY;
+
+                    Vector4 topLeft = new Vector4()
+                    {
+                        X = original.imageData[sourceYLow * original.stride + sourceXLow * 4],
+                        Y = original.imageData[sourceYLow * original.stride + sourceXLow * 4 + 1],
+                        Z = original.imageData[sourceYLow * original.stride + sourceXLow * 4 + 2],
+                        W = original.imageData[sourceYLow * original.stride + sourceXLow * 4 + 3],
+                    };
+                    Vector4 topRight = scaleX ?  new Vector4()
+                    {
+                        X = original.imageData[sourceYLow * original.stride + sourceXHigh * 4],
+                        Y = original.imageData[sourceYLow * original.stride + sourceXHigh * 4 + 1],
+                        Z = original.imageData[sourceYLow * original.stride + sourceXHigh * 4 + 2],
+                        W = original.imageData[sourceYLow * original.stride + sourceXHigh * 4 + 3],
+                    } : new Vector4();
+                    Vector4 bottomLeft = scaleY ? new Vector4()
+                    {
+                        X = original.imageData[sourceYHigh * original.stride + sourceXLow * 4],
+                        Y = original.imageData[sourceYHigh * original.stride + sourceXLow * 4 + 1],
+                        Z = original.imageData[sourceYHigh * original.stride + sourceXLow * 4 + 2],
+                        W = original.imageData[sourceYHigh * original.stride + sourceXLow * 4 + 3],
+                    } : new Vector4();
+                    Vector4 bottomRight = (scaleX && scaleY) ? new Vector4()
+                    {
+                        X = original.imageData[sourceYHigh * original.stride + sourceXHigh * 4],
+                        Y = original.imageData[sourceYHigh * original.stride + sourceXHigh * 4 + 1],
+                        Z = original.imageData[sourceYHigh * original.stride + sourceXHigh * 4 + 2],
+                        W = original.imageData[sourceYHigh * original.stride + sourceXHigh * 4 + 3],
+                    } : new Vector4();
+
+                    Vector4 finalValue = new Vector4();
+                    if (scaleY && scaleX)
+                    {
+                        Vector4 top = (topLeft * (float)sourceXLowWeight + topRight * (float)sourceXHighWeight) / (float)(sourceXLowWeight + sourceXHighWeight);
+                        Vector4 bottom = (bottomLeft * (float)sourceXLowWeight + bottomRight * (float)sourceXHighWeight)/ (float)(sourceXLowWeight + sourceXHighWeight);
+                        finalValue = (top * (float)sourceYLowWeight + bottom * (float)sourceYHighWeight)/(float)(sourceYLowWeight + sourceYHighWeight);
+                    } else if(scaleY)
+                    {
+                        finalValue = (topLeft * (float)sourceYLowWeight + bottomLeft * (float)sourceYHighWeight)/(float)(sourceYLowWeight+ sourceYHighWeight);
+                    } else if (scaleX)
+                    {
+                        finalValue = (topLeft * (float)sourceXLowWeight + topRight * (float)sourceXHighWeight) / (float)(sourceXLowWeight + sourceXHighWeight);
+                    }
+
+
+                    result.imageData[y * result.stride + x * 4] = (byte)Math.Clamp((int)(Math.Round(finalValue.X)+0.5),0,255);
+                    result.imageData[y * result.stride + x * 4 + 1] = (byte)Math.Clamp((int)(Math.Round(finalValue.Y)+0.5),0,255);
+                    result.imageData[y * result.stride + x * 4 + 2] = (byte)Math.Clamp((int)(Math.Round(finalValue.Z)+0.5),0,255);
+                    result.imageData[y * result.stride + x * 4 + 3] = (byte)Math.Clamp((int)(Math.Round(finalValue.W)+0.5),0,255);
+                }
+            }
         }
 
 
