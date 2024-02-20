@@ -225,9 +225,9 @@ namespace WAD2Quake3Shader
                                 int paletteOffset = mip0PaletteOffsets[y * width + x];
                                 if (palette != null)
                                 {
-                                    image.imageData[image.stride * y + x * 4] = palette[paletteOffset * 3];
+                                    image.imageData[image.stride * y + x * 4 + 2] = palette[paletteOffset * 3];
                                     image.imageData[image.stride * y + x * 4 + 1] = palette[paletteOffset * 3 + 1];
-                                    image.imageData[image.stride * y + x * 4 + 2] = palette[paletteOffset * 3 + 2];
+                                    image.imageData[image.stride * y + x * 4] = palette[paletteOffset * 3 + 2];
                                 }
                                 else
                                 {
