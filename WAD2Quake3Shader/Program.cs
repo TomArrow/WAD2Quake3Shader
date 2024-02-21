@@ -38,6 +38,11 @@ namespace WAD2Quake3Shader
 
     class Program
     {
+
+        static Regex radRegex = new Regex(@"(?:[\r\n]|^)\s*(?<texName>[^\s]+)\s*(?<r>[E\d\.\-\+]+)\s+(?<g>[E\d\.\-\+]+)\s+(?<b>[E\d\.\-\+]+)\s+(?<intensity>[E\d\.\-\+]+)",RegexOptions.IgnoreCase|RegexOptions.Singleline|RegexOptions.Compiled);
+
+
+
         static int Main(string[] args)
         {
             if (args == null || args.Length != 1)
@@ -46,23 +51,46 @@ namespace WAD2Quake3Shader
                 return 2;
             }
 
-            if(args[0] != "*")
+            Dictionary<string, Vector4> radIntensities = new Dictionary<string, Vector4>(StringComparer.InvariantCultureIgnoreCase);
+
+            string[] rads = Directory.GetFiles(".", "*.rad");
+            if (rads!=null && rads.Length > 0)
             {
-                ConvertWad(args[0]);
+                foreach (string rad in rads)
+                {
+                    string radContent = File.ReadAllText(rad);
+                    MatchCollection radMatches = radRegex.Matches(radContent);
+                    foreach(Match radMatch in radMatches)
+                    {
+                        string texName = radMatch.Groups["texName"].Value;
+                        Vector4 info = new Vector4() {
+                            X = float.Parse(radMatch.Groups["r"].Value)/255.0f,
+                            Y = float.Parse(radMatch.Groups["g"].Value) / 255.0f,
+                            Z = float.Parse(radMatch.Groups["b"].Value) / 255.0f,
+                            W = float.Parse(radMatch.Groups["intensity"].Value)/5.0f, // Dumb guess :)
+                        };
+                        radIntensities[texName] = info;
+                    }
+                }
+            }
+
+            if (args[0] != "*")
+            {
+                ConvertWad(args[0], radIntensities);
             }
             else
             {
                 string[] wads = Directory.GetFiles(".", "*.wad");
                 foreach(string wad in wads)
                 {
-                    ConvertWad(wad);
+                    ConvertWad(wad, radIntensities);
                 }
             }
 
             return 0;
         }
 
-        static void ConvertWad(string wadPath)
+        static void ConvertWad(string wadPath, Dictionary<string, Vector4> radIntensities)
         {
 
             StringBuilder logString = new StringBuilder();
@@ -142,7 +170,7 @@ namespace WAD2Quake3Shader
                             palette = br.ReadBytes(768);
                         }
 
-                        TextureType type = TextureType.Normal;
+                        TextureType type = 0;// TextureType.Normal;
                         int nameStartIndex = 0;
                         bool specialMatchFoudn = true;
                         int specialMatchCount = 0;
@@ -182,6 +210,14 @@ namespace WAD2Quake3Shader
                         if (textureName.Substring(nameStartIndex).StartsWith("scroll", StringComparison.InvariantCultureIgnoreCase))
                         {
                             type |= TextureType.Scroll;
+                        }
+
+                        Vector4? thisShaderLightIntensity = null;
+
+                        if (radIntensities.ContainsKey(textureName))
+                        {
+                            type |= TextureType.LightEmitting;
+                            thisShaderLightIntensity = radIntensities[textureName];
                         }
 
 
@@ -511,7 +547,7 @@ namespace WAD2Quake3Shader
 
                         if((type & TextureType.Toggling) == 0 && (type & TextureType.RandomTiling) == 0) // Those 2 types are handled elsewhere
                         {
-                            (bool onlyPOT, string shaderText) = MakeShader(type, texturePath, $"map {texturePath}", resizedImage != null);
+                            (bool onlyPOT, string shaderText) = MakeShader(type, texturePath, $"map {texturePath}", resizedImage != null, thisShaderLightIntensity);
 
                             if (shaderText != null)
                             {
@@ -600,7 +636,7 @@ namespace WAD2Quake3Shader
                     }
                 }
 
-                (bool onlyPOT, string shaderText) = MakeShader(groupedTexturesTypes[kvp.Key], baseTexturePath, mapInstruction.ToString(), togglingTexturesNPOT[kvp.Key]);
+                (bool onlyPOT, string shaderText) = MakeShader(groupedTexturesTypes[kvp.Key], baseTexturePath, mapInstruction.ToString(), togglingTexturesNPOT[kvp.Key],radIntensities.ContainsKey(baseName) ? radIntensities[baseName] : null);
 
                 if (shaderText != null)
                 {
@@ -726,7 +762,7 @@ namespace WAD2Quake3Shader
                 imageBmp.Dispose();
 
 
-                (bool onlyPOT, string shaderText) = MakeShader(groupedTexturesTypes[kvp.Key], baseTexturePath, $"\n\t\tmap {baseTexturePath}", mustResize);
+                (bool onlyPOT, string shaderText) = MakeShader(groupedTexturesTypes[kvp.Key], baseTexturePath, $"\n\t\tmap {baseTexturePath}", mustResize, radIntensities.ContainsKey(baseName) ? radIntensities[baseName] : null);
 
                 if (shaderText != null)
                 {
@@ -976,7 +1012,7 @@ namespace WAD2Quake3Shader
         }
 
 
-        static (bool,string) MakeShader(TextureType type, string shaderName, string mapString, bool resized)
+        static (bool,string) MakeShader(TextureType type, string shaderName, string mapString, bool resized, Vector4? radIntensity)
         {
             StringBuilder shaderString = new StringBuilder();
             bool shaderWritten = false;
@@ -1101,7 +1137,20 @@ namespace WAD2Quake3Shader
                 }
                 if((type & TextureType.LightEmitting) > 0)
                 {
-                    shaderString.Append($"\n\tq3map_surfacelight 500");
+                    if(radIntensity != null)
+                    {
+                        shaderString.Append($"\n\tq3map_lightRGB ");
+                        shaderString.Append(radIntensity.Value.X.ToString("0.###"));
+                        shaderString.Append(" ");
+                        shaderString.Append(radIntensity.Value.Y.ToString("0.###"));
+                        shaderString.Append(" ");
+                        shaderString.Append(radIntensity.Value.Z.ToString("0.###"));
+                        shaderString.Append($"\n\tq3map_surfacelight ");
+                        shaderString.Append(radIntensity.Value.W.ToString("0.###"));
+                    } else
+                    {
+                        shaderString.Append($"\n\tq3map_surfacelight 500");
+                    }
                     shaderString.Append($"\n\tq3map_lightsubdivide 64");
                     shaderString.Append($"\n\tq3map_nolightmap");
 
