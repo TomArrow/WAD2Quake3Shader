@@ -32,6 +32,9 @@ namespace WAD2Quake3Shader
         Font = 0x46,
     }
 
+    // TODO Take texture light emission from .rad files
+    // TODO Allow combining texturetypes
+
 
     class Program
     {
@@ -70,6 +73,7 @@ namespace WAD2Quake3Shader
             StringBuilder shaderStringPOT = new StringBuilder();
 
             Dictionary<string, SortedSet<string>> togglingTextures = new Dictionary<string, SortedSet<string>>(StringComparer.InvariantCultureIgnoreCase);
+            Dictionary<string, TextureType> groupedTexturesTypes = new Dictionary<string, TextureType>(StringComparer.InvariantCultureIgnoreCase);
             Dictionary<string, bool> togglingTexturesNPOT = new Dictionary<string, bool>(StringComparer.InvariantCultureIgnoreCase);
             Dictionary<string, SortedSet<string>> randomTilingTextures = new Dictionary<string, SortedSet<string>>(StringComparer.InvariantCultureIgnoreCase);
             Dictionary<string, ByteImage> randomTilingPicsData = new Dictionary<string, ByteImage>(StringComparer.InvariantCultureIgnoreCase);
@@ -139,26 +143,45 @@ namespace WAD2Quake3Shader
                         }
 
                         TextureType type = TextureType.Normal;
-                        if (textureName.Length > 0)
+                        int nameStartIndex = 0;
+                        bool specialMatchFoudn = true;
+                        int specialMatchCount = 0;
+                        while (specialMatchFoudn && (textureName.Length-nameStartIndex) > 0)
                         {
-                            switch (textureName[0])
+                            specialMatchFoudn = true;
+                            switch (textureName[nameStartIndex])
                             {
                                 case '{':
-                                    type = TextureType.Transparent;
+                                    type |= TextureType.Transparent;
                                     break;
                                 case '!':
-                                    type = TextureType.WaterFluid;
+                                    type |= TextureType.WaterFluid;
                                     break;
                                 case '+':
-                                    type = TextureType.Toggling;
+                                    type |= TextureType.Toggling;
+                                    nameStartIndex++;
                                     break;
                                 case '-':
-                                    type = TextureType.RandomTiling;
+                                    type |= TextureType.RandomTiling;
+                                    nameStartIndex++;
                                     break;
                                 case '~':
-                                    type = TextureType.LightEmitting;
+                                    type |= TextureType.LightEmitting;
+                                    break;
+                                default:
+                                    specialMatchFoudn = false;
                                     break;
                             }
+                            if (specialMatchFoudn)
+                            {
+                                nameStartIndex++;
+                                specialMatchCount++;
+                            }
+                        }
+
+                        if (textureName.Substring(nameStartIndex).StartsWith("scroll", StringComparison.InvariantCultureIgnoreCase))
+                        {
+                            type |= TextureType.Scroll;
                         }
 
 
@@ -184,7 +207,7 @@ namespace WAD2Quake3Shader
                         }
 
 
-                        if (type == TextureType.Toggling)
+                        if ((type & TextureType.Toggling) > 0)
                         {
                             string key = textureName.Substring(2);
                             if (!togglingTextures.ContainsKey(key))
@@ -193,8 +216,9 @@ namespace WAD2Quake3Shader
                             }
                             togglingTexturesNPOT[key] = resizedImage != null;
                             togglingTextures[key].Add(textureName);
+                            groupedTexturesTypes[key] = type;
                         }
-                        else if (type == TextureType.RandomTiling)
+                        else if ((type & TextureType.RandomTiling) > 0)
                         {
                             string key = textureName.Substring(2);
                             if (!randomTilingTextures.ContainsKey(key))
@@ -202,6 +226,7 @@ namespace WAD2Quake3Shader
                                 randomTilingTextures[key] = new SortedSet<string>(StringComparer.InvariantCultureIgnoreCase);
                             }
                             randomTilingTextures[key].Add(textureName);
+                            groupedTexturesTypes[key] = type;
                         }
 
 
@@ -237,7 +262,7 @@ namespace WAD2Quake3Shader
                                     image.imageData[image.stride * y + x * 4 + 1] = (byte)paletteOffset;
                                     image.imageData[image.stride * y + x * 4 + 2] = (byte)paletteOffset;
                                 }
-                                image.imageData[image.stride * y + x * 4 + 3] = ((type == TextureType.Transparent || lumpType == LumpType.Default1) && paletteOffset == 255) ? (byte)0 : (byte)255;
+                                image.imageData[image.stride * y + x * 4 + 3] = (((type & TextureType.Transparent)>0 || lumpType == LumpType.Default1) && paletteOffset == 255) ? (byte)0 : (byte)255;
                                 if (lump.LumpType == 0x46 && paletteOffset == 0)
                                 {
                                     // Special font thing?
@@ -263,7 +288,7 @@ namespace WAD2Quake3Shader
                             type = TextureType.DecalDarken; 
                         }*/
 
-                        if (type == TextureType.Transparent && palette != null)
+                        if ((type & TextureType.Transparent) > 0 && palette != null)
                         {
                             // Try to detect if we are dealing with a decal
                             // Detect darkening decal
@@ -348,7 +373,7 @@ namespace WAD2Quake3Shader
 
                         string texturePath = fixUpShaderName($"textures/wadConvert/{textureName}");
 
-                        bool shaderWritten = false;
+                        /*bool shaderWritten = false;
                         if (type == TextureType.WaterFluid || type == TextureType.Transparent || type == TextureType.DecalDarken || type == TextureType.DecalBrighten || type == TextureType.LightEmitting)
                         {
                             shaderString.Append($"\n{texturePath}\n{{");
@@ -466,7 +491,6 @@ namespace WAD2Quake3Shader
                             shaderString.Append($"\n}}\n");
                         }
 
-                        bool resizedIsMain = false;
 
                         if (!shaderWritten && resizedImage != null && type != TextureType.Toggling && type != TextureType.RandomTiling) // Toggling/RandomTiling are handled elsewhere
                         {
@@ -483,7 +507,26 @@ namespace WAD2Quake3Shader
                             shaderStringPOT.Append($"\n\t\tblendFunc filter");
                             shaderStringPOT.Append($"\n\t}}");
                             shaderStringPOT.Append($"\n}}\n");
+                        }*/
+
+                        if((type & TextureType.Toggling) == 0 && (type & TextureType.RandomTiling) == 0) // Those 2 types are handled elsewhere
+                        {
+                            (bool onlyPOT, string shaderText) = MakeShader(type, texturePath, $"map {texturePath}", resizedImage != null);
+
+                            if (shaderText != null)
+                            {
+                                if (!onlyPOT)
+                                {
+                                    shaderString.Append(shaderText);
+                                }
+                                else
+                                {
+                                    shaderStringPOT.Append(shaderText);
+                                }
+                            }
                         }
+
+                        bool resizedIsMain = false;
 
                         if(resizedImage != null)
                         {
@@ -526,7 +569,7 @@ namespace WAD2Quake3Shader
                             imageBmp.Dispose();
                         }
 
-                        logString.Append($"{lumpType} : {type} : {lump.Name}\n");
+                        logString.Append($"special{specialMatchCount} : {lumpType} : {type} : {lump.Name}\n");
                         Console.WriteLine(lump.Name);
                         Console.WriteLine(type);
                         Console.WriteLine(lumpType);
@@ -542,7 +585,36 @@ namespace WAD2Quake3Shader
 
                 string baseTexturePath = fixUpShaderName($"textures/wadConvert/{baseName}");
 
-                shaderString.Append($"\n{baseTexturePath}\n{{");
+                StringBuilder mapInstruction = new StringBuilder();
+                int index = 0;
+                foreach (string frame in kvp.Value)
+                {
+                    string texturePath = fixUpShaderName($"textures/wadConvert/{frame}");
+                    if (index++ == 0)
+                    {
+                        mapInstruction.Append($"animMap 10 {texturePath}");
+                    }
+                    else
+                    {
+                        mapInstruction.Append($" {texturePath}");
+                    }
+                }
+
+                (bool onlyPOT, string shaderText) = MakeShader(groupedTexturesTypes[kvp.Key], baseTexturePath, mapInstruction.ToString(), togglingTexturesNPOT[kvp.Key]);
+
+                if (shaderText != null)
+                {
+                    if (!onlyPOT)
+                    {
+                        shaderString.Append(shaderText);
+                    }
+                    else
+                    {
+                        shaderStringPOT.Append(shaderText);
+                    }
+                }
+
+                /*shaderString.Append($"\n{baseTexturePath}\n{{");
                 if (togglingTexturesNPOT[kvp.Key])
                 {
                     shaderString.Append($"\n\tqer_editorimage {baseTexturePath}_npot");
@@ -574,7 +646,7 @@ namespace WAD2Quake3Shader
                 shaderString.Append($"\n\t}}");
 
 
-                shaderString.Append($"\n}}\n");
+                shaderString.Append($"\n}}\n");*/
             }
             
             foreach (var kvp in randomTilingTextures)
@@ -641,6 +713,7 @@ namespace WAD2Quake3Shader
                 bool mustResize = potWidth != tiledWidth || potHeight != tiledHeight;
 
 
+
                 imageBmp = Helpers.ByteArrayToBitmap(image);
                 //imageBmp.Save($"{textureName}.tga");
 
@@ -652,6 +725,20 @@ namespace WAD2Quake3Shader
                 myTGA.Save($"{baseTexturePath}{suffix}.tga");
                 imageBmp.Dispose();
 
+
+                (bool onlyPOT, string shaderText) = MakeShader(groupedTexturesTypes[kvp.Key], baseTexturePath, $"\n\t\tmap {baseTexturePath}", mustResize);
+
+                if (shaderText != null)
+                {
+                    if (!onlyPOT)
+                    {
+                        shaderString.Append(shaderText);
+                    }
+                    else
+                    {
+                        shaderStringPOT.Append(shaderText);
+                    }
+                }
 
                 if (mustResize)
                 {
@@ -667,7 +754,7 @@ namespace WAD2Quake3Shader
                     myTGA = new TGA(imageBmp);
                     myTGA.Save($"{baseTexturePath}.tga");
                     imageBmp.Dispose();
-
+                    /*
                     // Add shader to have old scale editorimage (for correct compile), but POT image to be used by the game (so it loads them, as some games demand POT)
                     shaderStringPOT.Append($"\n{baseTexturePath}:q3map\n{{");
                     shaderStringPOT.Append($"\n\tqer_editorimage {baseTexturePath}_npot");
@@ -685,7 +772,7 @@ namespace WAD2Quake3Shader
 
 
 
-                    shaderStringPOT.Append($"\n}}\n");
+                    shaderStringPOT.Append($"\n}}\n");*/
                 }
 
 
@@ -879,6 +966,424 @@ namespace WAD2Quake3Shader
                     result.imageData[y * result.stride + x * 4 + 3] = (byte)Math.Clamp((int)(Math.Round(finalValue.W)+0.5),0,255);
                 }
             }
+        }
+
+        class StageProperties {
+            public string blendFunc = "";
+            public string rgbGen = "";
+            public string tcMod = "";
+
+        }
+
+
+        static (bool,string) MakeShader(TextureType type, string shaderName, string mapString, bool resized)
+        {
+            StringBuilder shaderString = new StringBuilder();
+            bool shaderWritten = false;
+            if ((type & TextureType.WaterFluid)>0 || (type & TextureType.Transparent)>0 || (type & TextureType.DecalDarken) > 0 || (type & TextureType.DecalBrighten)>0 || (type & TextureType.LightEmitting)>0 || (type & TextureType.Scroll) > 0 || (type & TextureType.Toggling) > 0)
+            {
+                shaderWritten = true;
+
+                StringBuilder lightmapStage = new StringBuilder();
+                StringBuilder mainMapStage = new StringBuilder();
+
+
+                lightmapStage.Append($"\n\t{{");
+                mainMapStage.Append($"\n\t{{");
+
+                lightmapStage.Append($"\n\t\tmap $lightmap");
+                mainMapStage.Append($"\n\t\t{mapString}");
+
+
+
+                bool hasLightMapStage = true;
+                bool lightMapStageComesFirst = true;
+
+                StageProperties mainStageProps = new StageProperties();
+                StageProperties lightStageProps = new StageProperties();
+
+                mainStageProps.rgbGen = $"\n\t\trgbGen identity";
+                lightStageProps.rgbGen = $"\n\t\trgbGen identity";
+
+                shaderString.Append($"\n{shaderName}\n{{");
+                if (resized)
+                {
+                    shaderString.Append($"\n\tqer_editorimage {shaderName}_npot");
+                }
+                else
+                {
+                    shaderString.Append($"\n\tqer_editorimage {shaderName}");
+                }
+
+                if((type & TextureType.DecalBrighten) > 0 || (type & TextureType.DecalDarken) > 0 || (type & TextureType.LightEmitting) > 0)
+                {
+                    hasLightMapStage = false;
+                }
+                if((type & TextureType.Transparent) > 0)
+                {
+                    lightMapStageComesFirst = false;
+                }
+
+                if (hasLightMapStage)
+                {
+                    if (lightMapStageComesFirst)
+                    {
+                        mainStageProps.blendFunc = $"\n\t\tblendFunc filter";
+                    }
+                    else
+                    {
+                        lightStageProps.blendFunc = $"\n\t\tblendFunc filter";
+                    }
+                }
+
+                if((type & TextureType.WaterFluid) > 0)
+                {
+                    shaderString.Append($"\n\tsurfaceparm nonsolid");
+                    shaderString.Append($"\n\tsurfaceparm nonopaque");
+                    shaderString.Append($"\n\tsurfaceparm water");
+                    shaderString.Append($"\n\tsurfaceparm trans");
+                    shaderString.Append($"\n\tqer_trans 0.5");
+                    shaderString.Append($"\n\tq3map_material Water");
+                    shaderString.Append($"\n\ttessSize 100");
+                    shaderString.Append($"\n\tdeformvertexes wave 100 sin 0 2.5 0 0.5");
+
+                    mainStageProps.blendFunc = $"\n\t\tblendFunc GL_ONE GL_ONE_MINUS_SRC_ALPHA";
+                    mainMapStage.Append($"\n\t\talphaGen const 0.8");
+                    mainStageProps.tcMod += $"\n\t\ttcMod turb 0 0.05 0 0.2";
+                    //mainMapStage.Append($"\n\t\ttcMod turb 0 0.05 0 0.2");
+                    //mainStageProps.rgbGen = $"\n\t\trgbGen identity";
+
+                    lightStageProps.blendFunc = $"\n\t\tblendFunc GL_DST_COLOR GL_ZERO";
+                    //lightStageProps.rgbGen = $"\n\t\trgbGen identity";
+                }
+                if((type & TextureType.Toggling) > 0)
+                {
+
+                    //mainStageProps.rgbGen = $"\n\t\trgbGen identity";
+
+                    //lightStageProps.rgbGen = $"\n\t\trgbGen identity";
+                    //lightStageProps.blendFunc = $"\n\t\tblendFunc filter";
+
+                }
+                if((type & TextureType.Transparent) > 0)
+                {
+                    shaderString.Append($"\n\tsurfaceparm alphashadow");
+                    shaderString.Append($"\n\tsurfaceparm nonopaque");
+                    shaderString.Append($"\n\tsurfaceparm trans");
+                    shaderString.Append($"\n\tcull none");
+                    shaderString.Append($"\n\tqer_trans 0.5");
+
+
+                    mainStageProps.blendFunc = $"\n\t\tblendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA";
+                    mainMapStage.Append($"\n\t\tdepthWrite");
+                    mainMapStage.Append($"\n\t\talphaFunc GE128");
+                    //mainStageProps.rgbGen = $"\n\t\trgbGen identity";
+
+                    //lightStageProps.blendFunc = $"\n\t\tblendFunc filter";
+                    lightmapStage.Append($"\n\t\tdepthFunc equal");
+                    //lightStageProps.rgbGen = $"\n\t\trgbGen identity";
+                }
+                if((type & TextureType.DecalDarken) > 0 || (type & TextureType.DecalBrighten) > 0)
+                {
+                    shaderString.Append($"\n\tpolygonOffset");
+                    shaderString.Append($"\n\tq3map_nolightmap");
+                    shaderString.Append($"\n\tqer_trans 0.5");
+                }
+                if((type & TextureType.DecalDarken) > 0 )
+                {
+                    //mainStageProps.rgbGen = $"\n\t\trgbGen identity";
+                    mainStageProps.blendFunc = $"\n\t\tblendFunc filter";
+                }
+                if((type & TextureType.DecalBrighten) > 0 )
+                {
+                    mainStageProps.blendFunc = $"\n\t\tblendFunc GL_ONE GL_ONE";
+                   // mainStageProps.rgbGen = $"\n\t\trgbGen identity";
+                }
+                if((type & TextureType.LightEmitting) > 0)
+                {
+                    shaderString.Append($"\n\tq3map_surfacelight 500");
+                    shaderString.Append($"\n\tq3map_lightsubdivide 64");
+                    shaderString.Append($"\n\tq3map_nolightmap");
+
+                    mainStageProps.rgbGen = $"\n\t\trgbGen const ( 0.7 0.7 0.7 )";
+                }
+                if ((type & TextureType.Scroll) > 0)
+                {
+                    mainStageProps.tcMod += $"\n\t\ttcMod scroll 0 -0.5";
+                }
+
+                mainMapStage.Append(mainStageProps.blendFunc);
+                mainMapStage.Append(mainStageProps.rgbGen);
+                mainMapStage.Append(mainStageProps.tcMod);
+
+                lightmapStage.Append(lightStageProps.blendFunc);
+                lightmapStage.Append(lightStageProps.rgbGen);
+                lightmapStage.Append(lightStageProps.tcMod);
+
+
+                lightmapStage.Append($"\n\t}}");
+                mainMapStage.Append($"\n\t}}");
+
+
+                if(hasLightMapStage && lightMapStageComesFirst)
+                {
+                    shaderString.Append(lightmapStage.ToString());
+                }
+
+                shaderString.Append(mainMapStage.ToString());
+
+                if (hasLightMapStage && !lightMapStageComesFirst)
+                {
+                    shaderString.Append(lightmapStage.ToString());
+                }
+
+
+
+                if ((type & TextureType.LightEmitting) > 0)
+                {
+
+                    shaderString.Append($"\n\t{{");
+                    //shaderString.Append($"\n\t\tmap {texturePath}");
+                    shaderString.Append($"\n\t\t{mapString}");
+                    shaderString.Append($"\n\t\tblendFunc GL_ONE GL_ONE");
+                    shaderString.Append($"\n\t\trgbGen const ( 0.3 0.3 0.3 )");
+                    shaderString.Append(mainStageProps.tcMod);
+                    shaderString.Append($"\n\t\tglow");
+                    shaderString.Append($"\n\t}}");
+                }
+
+                if ((type & TextureType.WaterFluid) > 0)
+                {
+                    shaderString.Append($"\n\t// Uncomment for some reflection?");
+                    shaderString.Append($"\n\t//{{");
+                    shaderString.Append($"\n\t//\tmap textures/random_environment_maybe");
+                    shaderString.Append($"\n\t//\tblendFunc GL_ONE GL_ONE");
+                    shaderString.Append($"\n\t//\ttcGen environment");
+                    shaderString.Append($"\n\t//\ttcMod turb 0 0.05 0 0.2");
+                    shaderString.Append($"\n\t//}}");
+                }
+
+
+                /*switch (type)
+                {
+                    case TextureType.WaterFluid:
+
+                        shaderString.Append($"\n\t{{");
+                        //shaderString.Append($"\n\t\tmap {texturePath}");
+                        shaderString.Append($"\n\t\t{mapString}");
+                        shaderString.Append($"\n\t}}");
+
+                        shaderString.Append($"\n\t{{");
+                        shaderString.Append($"\n\t\tmap $lightmap");
+                        shaderString.Append($"\n\t}}");
+
+                        break;
+                    case TextureType.Toggling:
+                        shaderWritten = true;
+                        shaderString.Append($"\n\tcull disable");
+
+                        shaderString.Append($"\n\t{{");
+                        shaderString.Append($"\n\t\tmap $lightmap");
+                        shaderString.Append($"\n\t}}");
+
+                        shaderString.Append($"\n\t{{");
+                        //shaderString.Append($"\n\t\tmap {shaderName}");
+                        shaderString.Append($"\n\t\t{mapString}");
+                        shaderString.Append($"\n\t}}");
+                        break;
+                    case TextureType.Transparent:
+                        shaderWritten = true;
+                        
+
+                        shaderString.Append($"\n\t{{");
+                        //shaderString.Append($"\n\t\tmap {texturePath}");
+                        shaderString.Append($"\n\t\t{mapString}");
+                        shaderString.Append($"\n\t}}");
+
+                        shaderString.Append($"\n\t{{");
+                        shaderString.Append($"\n\t\tmap $lightmap");
+                        shaderString.Append($"\n\t}}");
+                        break;
+                    case TextureType.DecalDarken: // Simple multiply
+                        shaderWritten = true;
+
+                        shaderString.Append($"\n\t{{");
+                        //shaderString.Append($"\n\t\tmap {texturePath}");
+                        shaderString.Append($"\n\t\t{mapString}");
+                        shaderString.Append($"\n\t}}");
+                        break;
+                    case TextureType.DecalBrighten: // Simple multiply
+                        shaderWritten = true;
+
+                        shaderString.Append($"\n\t{{");
+                        //shaderString.Append($"\n\t\tmap {texturePath}");
+                        shaderString.Append($"\n\t\t{mapString}");
+                        shaderString.Append($"\n\t}}");
+                        break;
+                    case TextureType.LightEmitting:
+                        shaderWritten = true;
+
+                        shaderString.Append($"\n\t{{");
+                        //shaderString.Append($"\n\t\tmap {texturePath}");
+                        shaderString.Append($"\n\t\t{mapString}");
+                        shaderString.Append($"\n\t}}");
+
+                        break;
+                }*/
+
+                /*switch (type)
+                {
+                    case TextureType.WaterFluid:
+                        shaderWritten = true;
+                        shaderString.Append($"\n\tsurfaceparm nonsolid");
+                        shaderString.Append($"\n\tsurfaceparm nonopaque");
+                        shaderString.Append($"\n\tsurfaceparm water");
+                        shaderString.Append($"\n\tsurfaceparm trans");
+                        shaderString.Append($"\n\tqer_trans 0.5");
+                        shaderString.Append($"\n\tq3map_material Water");
+                        shaderString.Append($"\n\ttessSize 100");
+                        shaderString.Append($"\n\tdeformvertexes wave 100 sin 0 2.5 0 0.5");
+
+                        shaderString.Append($"\n\t{{");
+                        //shaderString.Append($"\n\t\tmap {texturePath}");
+                        shaderString.Append($"\n\t\t{mapString}");
+                        shaderString.Append($"\n\t\tblendFunc GL_ONE GL_ONE_MINUS_SRC_ALPHA");
+                        shaderString.Append($"\n\t\talphaGen const 0.8");
+                        shaderString.Append($"\n\t\ttcMod turb 0 0.05 0 0.2");
+                        shaderString.Append($"\n\t\trgbGen identity");
+                        shaderString.Append($"\n\t}}");
+
+                        shaderString.Append($"\n\t{{");
+                        shaderString.Append($"\n\t\tmap $lightmap");
+                        shaderString.Append($"\n\t\tblendFunc GL_DST_COLOR GL_ZERO");
+                        shaderString.Append($"\n\t\trgbGen identity");
+                        shaderString.Append($"\n\t}}");
+
+                        shaderString.Append($"\n\t//{{");
+                        shaderString.Append($"\n\t//\tmap textures/random_environment_maybe");
+                        shaderString.Append($"\n\t//\tblendFunc GL_ONE GL_ONE");
+                        shaderString.Append($"\n\t//\ttcGen environment");
+                        shaderString.Append($"\n\t//\ttcMod turb 0 0.05 0 0.2");
+                        shaderString.Append($"\n\t//}}");
+                        break;
+                    case TextureType.Toggling:
+                        shaderWritten = true;
+                        shaderString.Append($"\n\tcull disable");
+
+                        shaderString.Append($"\n\t{{");
+                        shaderString.Append($"\n\t\tmap $lightmap");
+                        shaderString.Append($"\n\t\trgbGen identity");
+                        shaderString.Append($"\n\t}}");
+
+                        shaderString.Append($"\n\t{{");
+                        //shaderString.Append($"\n\t\tmap {shaderName}");
+                        shaderString.Append($"\n\t\t{mapString}");
+                        shaderString.Append($"\n\t\trgbGen identity");
+                        shaderString.Append($"\n\t\tblendFunc filter");
+                        shaderString.Append($"\n\t}}");
+                        break;
+                    case TextureType.Transparent:
+                        shaderWritten = true;
+                        shaderString.Append($"\n\tsurfaceparm alphashadow");
+                        shaderString.Append($"\n\tsurfaceparm nonopaque");
+                        shaderString.Append($"\n\tsurfaceparm trans");
+                        shaderString.Append($"\n\tcull none");
+                        shaderString.Append($"\n\tqer_trans 0.5");
+
+                        shaderString.Append($"\n\t{{");
+                        //shaderString.Append($"\n\t\tmap {texturePath}");
+                        shaderString.Append($"\n\t\t{mapString}");
+                        shaderString.Append($"\n\t\tblendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA");
+                        shaderString.Append($"\n\t\tdepthWrite");
+                        shaderString.Append($"\n\t\talphaFunc GE128");
+                        shaderString.Append($"\n\t\trgbGen identity");
+                        shaderString.Append($"\n\t}}");
+
+                        shaderString.Append($"\n\t{{");
+                        shaderString.Append($"\n\t\tmap $lightmap");
+                        shaderString.Append($"\n\t\tblendFunc filter");
+                        shaderString.Append($"\n\t\tdepthFunc equal");
+                        shaderString.Append($"\n\t\trgbGen identity");
+                        shaderString.Append($"\n\t}}");
+                        break;
+                    case TextureType.DecalDarken: // Simple multiply
+                        shaderWritten = true;
+                        shaderString.Append($"\n\tpolygonOffset");
+                        shaderString.Append($"\n\tq3map_nolightmap");
+                        shaderString.Append($"\n\tqer_trans 0.5");
+
+                        shaderString.Append($"\n\t{{");
+                        //shaderString.Append($"\n\t\tmap {texturePath}");
+                        shaderString.Append($"\n\t\t{mapString}");
+                        shaderString.Append($"\n\t\trgbGen identity");
+                        shaderString.Append($"\n\t\tblendFunc filter");
+                        shaderString.Append($"\n\t}}");
+                        break;
+                    case TextureType.DecalBrighten: // Simple multiply
+                        shaderWritten = true;
+                        shaderString.Append($"\n\tpolygonOffset");
+                        shaderString.Append($"\n\tq3map_nolightmap");
+                        shaderString.Append($"\n\tqer_trans 0.5");
+
+                        shaderString.Append($"\n\t{{");
+                        //shaderString.Append($"\n\t\tmap {texturePath}");
+                        shaderString.Append($"\n\t\t{mapString}");
+                        shaderString.Append($"\n\t\tblendFunc GL_ONE GL_ONE");
+                        shaderString.Append($"\n\t\trgbGen identity");
+                        shaderString.Append($"\n\t}}");
+                        break;
+                    case TextureType.LightEmitting:
+                        shaderWritten = true;
+                        shaderString.Append($"\n\tq3map_surfacelight 500");
+                        shaderString.Append($"\n\tq3map_lightsubdivide 64");
+                        shaderString.Append($"\n\tq3map_nolightmap");
+
+                        shaderString.Append($"\n\t{{");
+                        //shaderString.Append($"\n\t\tmap {texturePath}");
+                        shaderString.Append($"\n\t\t{mapString}");
+                        shaderString.Append($"\n\t\trgbGen const ( 0.7 0.7 0.7 )");
+                        shaderString.Append($"\n\t}}");
+
+                        shaderString.Append($"\n\t{{");
+                        //shaderString.Append($"\n\t\tmap {texturePath}");
+                        shaderString.Append($"\n\t\t{mapString}");
+                        shaderString.Append($"\n\t\tblendFunc GL_ONE GL_ONE");
+                        shaderString.Append($"\n\t\trgbGen const ( 0.3 0.3 0.3 )");
+                        shaderString.Append($"\n\t\tglow");
+                        shaderString.Append($"\n\t}}");
+                        break;
+                }*/
+
+
+
+
+                shaderString.Append($"\n}}\n");
+            }
+
+            //bool resizedIsMain = false;
+
+            bool onlyPOT = false;
+
+            if (!shaderWritten && resized /*&& type != TextureType.Toggling && type != TextureType.RandomTiling*/) // Toggling/RandomTiling are handled elsewhere
+            {
+                shaderString.Append($"\n{shaderName}:q3map\n{{");
+                shaderString.Append($"\n\tqer_editorimage {shaderName}_npot");
+                shaderString.Append($"\n\t{{");
+                shaderString.Append($"\n\t\tmap $lightmap");
+                shaderString.Append($"\n\t\trgbGen identity");
+                shaderString.Append($"\n\t}}");
+
+                shaderString.Append($"\n\t{{");
+                //shaderString.Append($"\n\t\tmap {shaderName}");
+                shaderString.Append($"\n\t\t{mapString}");
+                shaderString.Append($"\n\t\trgbGen identity");
+                shaderString.Append($"\n\t\tblendFunc filter");
+                shaderString.Append($"\n\t}}");
+                shaderString.Append($"\n}}\n");
+                onlyPOT = true;
+            }
+
+            return (onlyPOT, shaderString.Length > 0 ? shaderString.ToString() : null);
         }
 
 
