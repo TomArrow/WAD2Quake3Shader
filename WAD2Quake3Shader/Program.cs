@@ -23,6 +23,11 @@ namespace WAD2Quake3Shader
         DecalDarken = (1 << 6),
         DecalBrighten = (1 << 7),
         Scroll = (1 << 8),
+        Lava = (1 << 9),
+        Slime = (1 << 10),
+        PseudoWater = (1 << 11),
+        PseudoLava = (1 << 12),
+        PseudoSlime = (1 << 13),
     }
 
     enum LumpType { 
@@ -40,6 +45,9 @@ namespace WAD2Quake3Shader
     {
 
         static Regex radRegex = new Regex(@"(?:[\r\n]|^)\s*(?<texName>[^\s]+)\s*(?<r>[E\d\.\-\+]+)\s+(?<g>[E\d\.\-\+]+)\s+(?<b>[E\d\.\-\+]+)\s+(?<intensity>[E\d\.\-\+]+)",RegexOptions.IgnoreCase|RegexOptions.Singleline|RegexOptions.Compiled);
+        static Regex pseudoLavaRegex = new Regex(@"^l+a+v+a+",RegexOptions.IgnoreCase|RegexOptions.Compiled);
+        static Regex pseudoSlimeRegex = new Regex(@"^s+l+i+m+e+",RegexOptions.IgnoreCase|RegexOptions.Compiled);
+        static Regex pseudoWaterRegex = new Regex(@"^w+a+t+e+r+",RegexOptions.IgnoreCase|RegexOptions.Compiled);
 
 
 
@@ -174,31 +182,88 @@ namespace WAD2Quake3Shader
                         int nameStartIndex = 0;
                         bool specialMatchFoudn = true;
                         int specialMatchCount = 0;
+                        bool onlyNameSearch = false;
                         while (specialMatchFoudn && (textureName.Length-nameStartIndex) > 0)
                         {
-                            specialMatchFoudn = true;
-                            switch (textureName[nameStartIndex])
+                            if (textureName[nameStartIndex] == '_')
                             {
-                                case '{':
-                                    type |= TextureType.Transparent;
-                                    break;
-                                case '!':
+                                nameStartIndex++;
+                                onlyNameSearch = true;
+                            }
+                            specialMatchFoudn = true;
+                            if (!onlyNameSearch)
+                            {
+                                switch (textureName[nameStartIndex])
+                                {
+                                    case '{':
+                                        type |= TextureType.Transparent;
+                                        break;
+                                    case '!':
+                                        type |= TextureType.WaterFluid;
+                                        break;
+                                    case '+':
+                                        type |= TextureType.Toggling;
+                                        nameStartIndex++;
+                                        break;
+                                    case '-':
+                                        type |= TextureType.RandomTiling;
+                                        nameStartIndex++;
+                                        break;
+                                    case '~':
+                                        type |= TextureType.LightEmitting;
+                                        break;
+                                    default:
+                                        specialMatchFoudn = false;
+                                        break;
+                                }
+                            } else
+                            {
+                                specialMatchFoudn = false;
+                            }
+                            
+                            if (!specialMatchFoudn)
+                            {
+                                Match match = null;
+                                string textureHere = textureName.Substring(nameStartIndex);
+                                if (textureHere.StartsWith("water", StringComparison.InvariantCultureIgnoreCase))
+                                {
                                     type |= TextureType.WaterFluid;
-                                    break;
-                                case '+':
-                                    type |= TextureType.Toggling;
-                                    nameStartIndex++;
-                                    break;
-                                case '-':
-                                    type |= TextureType.RandomTiling;
-                                    nameStartIndex++;
-                                    break;
-                                case '~':
-                                    type |= TextureType.LightEmitting;
-                                    break;
-                                default:
-                                    specialMatchFoudn = false;
-                                    break;
+                                    nameStartIndex += "water".Length-1;
+                                    specialMatchFoudn = true;
+                                }
+                                else if (textureHere.StartsWith("scroll", StringComparison.InvariantCultureIgnoreCase))
+                                {
+                                    type |= TextureType.Scroll;
+                                    nameStartIndex += "scroll".Length - 1;
+                                    specialMatchFoudn = true;
+                                }
+                                else if (textureHere.StartsWith("lava", StringComparison.InvariantCultureIgnoreCase))
+                                {
+                                    type |= TextureType.Lava | TextureType.LightEmitting;
+                                    nameStartIndex += "lava".Length - 1;
+                                    specialMatchFoudn = true;
+                                }
+                                else if (textureHere.StartsWith("slime", StringComparison.InvariantCultureIgnoreCase))
+                                {
+                                    type |= TextureType.Slime;
+                                    nameStartIndex += "slime".Length - 1;
+                                    specialMatchFoudn = true;
+                                } else if ((match= pseudoWaterRegex.Match(textureHere)).Success)
+                                {
+                                    type |= TextureType.WaterFluid | TextureType.PseudoWater;
+                                    nameStartIndex += match.Value.Length - 1;
+                                    specialMatchFoudn = true;
+                                } else if ((match= pseudoLavaRegex.Match(textureHere)).Success)
+                                {
+                                    type |= TextureType.Lava | TextureType.PseudoLava | TextureType.LightEmitting;
+                                    nameStartIndex += match.Value.Length - 1;
+                                    specialMatchFoudn = true;
+                                } else if ((match= pseudoSlimeRegex.Match(textureHere)).Success)
+                                {
+                                    type |= TextureType.Slime | TextureType.PseudoSlime;
+                                    nameStartIndex += match.Value.Length - 1;
+                                    specialMatchFoudn = true;
+                                }
                             }
                             if (specialMatchFoudn)
                             {
@@ -207,10 +272,7 @@ namespace WAD2Quake3Shader
                             }
                         }
 
-                        if (textureName.Substring(nameStartIndex).StartsWith("scroll", StringComparison.InvariantCultureIgnoreCase))
-                        {
-                            type |= TextureType.Scroll;
-                        }
+                        
 
                         Vector4? thisShaderLightIntensity = null;
 
@@ -1008,7 +1070,6 @@ namespace WAD2Quake3Shader
             public string blendFunc = "";
             public string rgbGen = "";
             public string tcMod = "";
-
         }
 
 
@@ -1030,7 +1091,7 @@ namespace WAD2Quake3Shader
                 lightmapStage.Append($"\n\t\tmap $lightmap");
                 mainMapStage.Append($"\n\t\t{mapString}");
 
-
+                int surfaceLightIntensityOverride = 0;
 
                 bool hasLightMapStage = true;
                 bool lightMapStageComesFirst = true;
@@ -1051,7 +1112,7 @@ namespace WAD2Quake3Shader
                     shaderString.Append($"\n\tqer_editorimage {shaderName}");
                 }
 
-                if((type & TextureType.DecalBrighten) > 0 || (type & TextureType.DecalDarken) > 0 || (type & TextureType.LightEmitting) > 0)
+                if((type & TextureType.DecalBrighten) > 0 || (type & TextureType.DecalDarken) > 0 || (type & TextureType.LightEmitting) > 0 || (type & TextureType.Lava) > 0)
                 {
                     hasLightMapStage = false;
                 }
@@ -1074,23 +1135,80 @@ namespace WAD2Quake3Shader
 
                 if((type & TextureType.WaterFluid) > 0)
                 {
-                    shaderString.Append($"\n\tsurfaceparm nonsolid");
-                    shaderString.Append($"\n\tsurfaceparm nonopaque");
-                    shaderString.Append($"\n\tsurfaceparm water");
-                    shaderString.Append($"\n\tsurfaceparm trans");
-                    shaderString.Append($"\n\tqer_trans 0.5");
-                    shaderString.Append($"\n\tq3map_material Water");
+                    if ((type & TextureType.PseudoWater) == 0)
+                    {
+                        shaderString.Append($"\n\tsurfaceparm nonsolid");
+                        shaderString.Append($"\n\tsurfaceparm nonopaque");
+                        shaderString.Append($"\n\tsurfaceparm water");
+                        shaderString.Append($"\n\tsurfaceparm trans");
+                        shaderString.Append($"\n\tsort seeThrough");
+                        shaderString.Append($"\n\tq3map_material Water");
+                        shaderString.Append($"\n\tqer_trans 0.5");
+                        mainStageProps.blendFunc = $"\n\t\tblendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA";
+                        mainMapStage.Append($"\n\t\talphaGen const 0.5");
+                        lightStageProps.blendFunc = $"\n\t\tblendFunc GL_DST_COLOR GL_ZERO";
+                    } else
+                    {
+                        mainStageProps.blendFunc = $"\n\t\tblendFunc filter";
+                        lightStageProps.blendFunc = $"\n\t\tblendFunc GL_ONE GL_ZERO";
+                    }
+                    
                     shaderString.Append($"\n\ttessSize 100");
                     shaderString.Append($"\n\tdeformvertexes wave 100 sin 0 2.5 0 0.5");
 
-                    mainStageProps.blendFunc = $"\n\t\tblendFunc GL_ONE GL_ONE_MINUS_SRC_ALPHA";
-                    mainMapStage.Append($"\n\t\talphaGen const 0.8");
                     mainStageProps.tcMod += $"\n\t\ttcMod turb 0 0.05 0 0.2";
                     //mainMapStage.Append($"\n\t\ttcMod turb 0 0.05 0 0.2");
                     //mainStageProps.rgbGen = $"\n\t\trgbGen identity";
 
-                    lightStageProps.blendFunc = $"\n\t\tblendFunc GL_DST_COLOR GL_ZERO";
                     //lightStageProps.rgbGen = $"\n\t\trgbGen identity";
+                }
+                if((type & TextureType.Slime) > 0)
+                {
+                    if ((type & TextureType.PseudoSlime) == 0)
+                    {
+                        shaderString.Append($"\n\tsurfaceparm nonsolid");
+                        shaderString.Append($"\n\tsurfaceparm nonopaque");
+                        shaderString.Append($"\n\tsurfaceparm water");
+                        shaderString.Append($"\n\tsurfaceparm slime");
+                        shaderString.Append($"\n\tsurfaceparm trans");
+                        shaderString.Append($"\n\tsort seeThrough");
+                        shaderString.Append($"\n\tqer_trans 0.5");
+                        mainStageProps.blendFunc = $"\n\t\tblendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA";
+                        mainMapStage.Append($"\n\t\talphaGen const 0.8");
+                        lightStageProps.blendFunc = $"\n\t\tblendFunc GL_DST_COLOR GL_ZERO";
+                    } else
+                    {
+                        mainStageProps.blendFunc = $"\n\t\tblendFunc filter";
+                        lightStageProps.blendFunc = $"\n\t\tblendFunc GL_ONE GL_ZERO";
+                    }
+                    
+                    shaderString.Append($"\n\ttessSize 100");
+                    shaderString.Append($"\n\tdeformvertexes wave 100 sin 0 2.5 0 0.25");
+
+                    mainStageProps.tcMod += $"\n\t\ttcMod turb 0 0.25 0 0.1";
+                    //mainMapStage.Append($"\n\t\ttcMod turb 0 0.05 0 0.2");
+                    //mainStageProps.rgbGen = $"\n\t\trgbGen identity";
+
+                    //lightStageProps.rgbGen = $"\n\t\trgbGen identity";
+                }
+                if((type & TextureType.Lava) > 0)
+                {
+                    type |= TextureType.LightEmitting; // Should already be the case but whatever, let's be safe.
+                    if ((type & TextureType.PseudoLava)==0)
+                    { 
+                        // Pseudo lava doesn't have lava properties but looks like lava
+                        shaderString.Append($"\n\tsurfaceparm lava");
+                        shaderString.Append($"\n\tsurfaceparm noimpact");
+                        shaderString.Append($"\n\tsurfaceparm nonsolid");
+                    }
+                    shaderString.Append($"\n\tsurfaceparm nomarks");
+                    shaderString.Append($"\n\ttessSize 100");
+                    shaderString.Append($"\n\tdeformvertexes wave 100 sin 0 2.5 0 0.25");
+
+                    surfaceLightIntensityOverride = 3000;
+
+                    mainStageProps.blendFunc = $"\n\t\tblendFunc GL_ONE GL_ZERO";
+                    mainStageProps.tcMod += $"\n\t\ttcMod turb 0 0.25 0 0.1";
                 }
                 if((type & TextureType.Toggling) > 0)
                 {
@@ -1137,7 +1255,7 @@ namespace WAD2Quake3Shader
                 }
                 if((type & TextureType.LightEmitting) > 0)
                 {
-                    if(radIntensity != null)
+                    if (radIntensity != null)
                     {
                         shaderString.Append($"\n\tq3map_lightRGB ");
                         shaderString.Append(radIntensity.Value.X.ToString("0.###"));
@@ -1147,6 +1265,9 @@ namespace WAD2Quake3Shader
                         shaderString.Append(radIntensity.Value.Z.ToString("0.###"));
                         shaderString.Append($"\n\tq3map_surfacelight ");
                         shaderString.Append(radIntensity.Value.W.ToString("0.###"));
+                    } else if (surfaceLightIntensityOverride != 0) {
+
+                        shaderString.Append($"\n\tq3map_surfacelight {surfaceLightIntensityOverride}");
                     } else
                     {
                         shaderString.Append($"\n\tq3map_surfacelight 500");
