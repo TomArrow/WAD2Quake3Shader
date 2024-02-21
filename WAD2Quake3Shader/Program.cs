@@ -1158,7 +1158,7 @@ namespace WAD2Quake3Shader
                 }
                 if ((type & TextureType.Scroll) > 0)
                 {
-                    mainStageProps.tcMod += $"\n\t\ttcMod scroll 0 -0.5";
+                    mainStageProps.tcMod += $"\n\t\ttcMod scroll -0.5 0";
                 }
 
                 mainMapStage.Append(mainStageProps.blendFunc);
