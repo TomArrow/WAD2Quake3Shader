@@ -1,0 +1,3 @@
+[submodule "ext/sledge-formats"]
+	path = ext/sledge-formats
+	url = git@github.com:TomArrow/sledge-formats.git

@@ -6,10 +6,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace WAD2Quake3Shader
+namespace WAD2Q3SharedStuff
 {
 
-    class ByteImage
+    public class ByteImage
     {
         public byte[] imageData;
         public int stride;
@@ -44,7 +44,7 @@ namespace WAD2Quake3Shader
         }
     }
 
-    class Helpers
+    public class Helpers
     {
         public static ByteImage BitmapToByteArray(Bitmap bmp)
         {

@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "MDL2Quake3OBJ_NET": {
+      "commandName": "Project",
+      "commandLineArgs": "bush_noleaves.mdl"
+    }
+  }
+}

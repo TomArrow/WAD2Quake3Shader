@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Text.RegularExpressions;
+using WAD2Q3SharedStuff;
 
 namespace FilterMapShaderNames
 {
@@ -16,15 +17,10 @@ namespace FilterMapShaderNames
             string srcText = File.ReadAllText(args[0]);
 
             string destText = findShader.Replace(srcText, (match) => {
-                return match.Groups["vecs"] + " wadConvert/" + fixUpShaderName(match.Groups["shaderName"].Value.Trim()) + " [";
+                return match.Groups["vecs"] + " wadConvert/" + SharedStuff.fixUpShaderName(match.Groups["shaderName"].Value.Trim()) + " [";
             });
 
             File.WriteAllText($"{args[0]}.filtered.map", destText);
-        }
-        static Regex badShaderNameChar = new Regex(@"[^-_\w\d:\\\/]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        static string fixUpShaderName(string shaderName)
-        {
-            return badShaderNameChar.Replace(shaderName, "_").ToLower();
         }
     }
 }
