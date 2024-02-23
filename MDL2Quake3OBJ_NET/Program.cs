@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
@@ -51,12 +52,35 @@ namespace MDL2Quake3OBJ_NET
             float smallestZ = 0;
 
 
+            Directory.CreateDirectory("models/mdlConvert");
 
+            string filePathFull = Path.GetFullPath(filename);
+            string filePathOutputRelative = Path.Combine("models/mdlConvert",Path.ChangeExtension(Path.GetFileName(filename),".obj"));
+
+            // Do assimp conversion of model itself
+            try
+            {
+                Process assimpProc = new Process();
+                assimpProc.StartInfo.RedirectStandardOutput = true;
+                assimpProc.StartInfo.RedirectStandardError = true;
+                assimpProc.StartInfo.FileName = "assimp";
+                assimpProc.StartInfo.Arguments = $"export \"{filePathFull}\" \"{filePathOutputRelative}\"";
+                assimpProc.Start();
+                assimpProc.WaitForExit();
+
+                Console.WriteLine(assimpProc.StandardOutput.ReadToEnd());
+                Console.WriteLine(assimpProc.StandardError.ReadToEnd());
+            } catch(Exception ex)
+            {
+                Console.WriteLine($"Couldn't convert {filename} with assimp. Assimp not found.");
+            }
+            
             StringBuilder shaderString = new StringBuilder();
             StringBuilder shaderStringPOT = new StringBuilder();
 
             foreach (Texture tex in mdl.Textures)
             {
+
                 string textureName = tex.Name;
 
                 ByteImage image = SharedStuff.GoldSrcImgToByteImage(tex.Width, tex.Height, tex.Data, tex.Palette, (tex.Flags & TextureFlags.Masked) > 0, false);
