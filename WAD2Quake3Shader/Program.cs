@@ -1072,7 +1072,7 @@ namespace WAD2Quake3Shader
             public string tcMod = "";
         }
 
-
+        // TODO For any shader that gets deformvertexes, make a version without it. It's not always desirable (3d blocks of water streaming down for example).
         static (bool,string) MakeShader(TextureType type, string shaderName, string mapString, bool resized, Vector4? radIntensity)
         {
             StringBuilder shaderString = new StringBuilder();
