@@ -811,6 +811,26 @@ namespace WAD2Q3SharedStuff
 
             return retVal.ToArray();
         }
+        static public Int64[] parseIntArray(string colorString)
+        {
+            string prefilteredColor = emptySpaceRegex.Replace(colorString, " ");
+            string[] components = prefilteredColor.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            if (components.Length < 1)
+            {
+                Console.WriteLine("Vector3 with less than 3 components, skipping, weird.");
+                return null;
+            }
+
+            List<Int64> retVal = new List<Int64>();
+
+            foreach (string component in components)
+            {
+                retVal.Add(Int64.Parse(component));
+            }
+
+            return retVal.ToArray();
+        }
 
         static public float[] parseFloatArray(string colorString)
         {

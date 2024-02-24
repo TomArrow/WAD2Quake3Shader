@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PCRE;
+using System;
 using System.IO;
 using System.Numerics;
 using System.Text;
@@ -11,7 +12,13 @@ namespace FilterMapShaderNames
     {
         static Regex findShader = new Regex(@"(?<vecs>(?:\((?:\s*[-\d\.]+){3}\s*\)\s*){3}\s*)(?<shaderName>.*?)\s*\[", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline);
 
-        static Regex entitiesParseRegex = new Regex(@"\{(\s*""([^""]+)""[ \t]+""([^""]+)"")+", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        //static Regex entitiesParseRegex = new Regex(@"\{(\s*""([^""]+)""[ \t]+""([^""]+)"")+", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        
+        static Regex faceEndNumbersParse = new Regex(@"(?<start>\[\s*([-\d\.\+E]+)\s+([-\d\.\+E]+)\s+([-\d\.\+E]+)\s+([-\d\.\+E]+)\s*\]\s*(?:[-\d\.\+E]+\s*){3})(?<extraValues>(?:[-\d\.\+E]+\s*){3})?", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        static string propsBrushMatcher = @"(?<props>\{(\s*""([^""]+)""[ \t]+""([^""]+)"")+)(?<brushes>(?:\s*\{(?:[^\{\}]++|(?:(?<!\s)[\{\}])++|(?R))*+(?<=\s)\})*\s+\})";
+
+        const int detailFlag = 0x8000000;
 
         static void Main(string[] args)
         {
@@ -24,7 +31,8 @@ namespace FilterMapShaderNames
             string destText = srcText;
 
 
-            MatchCollection entities = entitiesParseRegex.Matches(destText);
+            //MatchCollection entities = entitiesParseRegex.Matches(destText);
+            var entities = PcreRegex.Matches(destText, propsBrushMatcher);
 
             AverageHelperDouble lightR = new AverageHelperDouble();
             AverageHelperDouble lightG = new AverageHelperDouble();
@@ -36,7 +44,7 @@ namespace FilterMapShaderNames
 
             string skyname = "desert";
 
-            foreach (Match entity in entities)
+            foreach (var entity in entities)
             {
                 EntityProperties props = EntityProperties.FromString(entity.Value);
                 if (props["classname"].Equals("worldspawn", StringComparison.InvariantCultureIgnoreCase))
@@ -165,10 +173,13 @@ namespace FilterMapShaderNames
                 return match.Groups["vecs"] + " wadConvert/" + SharedStuff.fixUpShaderName(shaderName) + " [";
             });
 
-            destText = entitiesParseRegex.Replace(destText,(Match entity)=> {
+            //destText = entitiesParseRegex.Replace(destText,(Match entity)=> {
+            destText = PcreRegex.Replace(destText, propsBrushMatcher,(entity)=> {
 
                 bool resave = false;
-                EntityProperties props = EntityProperties.FromString(entity.Value);
+                string propsString = entity.Groups["props"].Value;
+                string brushesString = entity.Groups["brushes"].Value;
+                EntityProperties props = EntityProperties.FromString(propsString);
                 if (props["classname"].Equals("env_sprite", StringComparison.InvariantCultureIgnoreCase) && props.ContainsKey("model"))
                 {
                     props["classname"] = "misc_model";
@@ -178,6 +189,12 @@ namespace FilterMapShaderNames
                 if (props["classname"].Equals("func_wall", StringComparison.InvariantCultureIgnoreCase))
                 {
                     props["classname"] = "func_group";
+                    brushesString = MakeFacesDetail(brushesString);
+                    resave = true;
+                }
+                if (props["classname"].Equals("func_illusionary", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    brushesString = MakeFacesDetail(brushesString);
                     resave = true;
                 }
                 
@@ -203,7 +220,7 @@ namespace FilterMapShaderNames
 
                 if (resave)
                 {
-                    return $"{{\n{props.ToString()}\n";
+                    return $"{{\n{props.ToString()}\n{brushesString}";
                 } else
                 {
                     return entity.Value;
@@ -211,6 +228,24 @@ namespace FilterMapShaderNames
             });
 
             File.WriteAllText($"{args[0]}.filtered.map", destText);
+        }
+
+        static string MakeFacesDetail(string brushesText)
+        {
+            return faceEndNumbersParse.Replace(brushesText,(Match faceMatch)=> {
+                if (faceMatch.Groups["extraValues"].Success)
+                {
+                    // We need to parse and add the detail flag
+                    Int64[] extraValuesArray = SharedStuff.parseIntArray(faceMatch.Groups["extraValues"].Value);
+                    extraValuesArray[0] |= detailFlag;
+
+                    return faceMatch.Groups["start"].Value.Trim(new char[] { '\r', '\n' }) + $" {extraValuesArray[0]} {extraValuesArray[1]} {extraValuesArray[2]}\n";
+                } else
+                {
+                    // We just append.
+                    return faceMatch.Value.Trim(new char[] { '\r','\n'}) + $" {detailFlag} 0 0\n";
+                }
+            });
         }
     }
 }

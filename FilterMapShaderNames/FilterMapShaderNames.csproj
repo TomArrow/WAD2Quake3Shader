@@ -6,6 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="PCRE.NET" Version="0.20.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\WAD2Q3SharedStuff\WAD2Q3SharedStuff.csproj" />
   </ItemGroup>
 
