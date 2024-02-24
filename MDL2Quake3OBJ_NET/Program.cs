@@ -18,6 +18,7 @@ namespace MDL2Quake3OBJ_NET
 {
     class Program
     {
+        static Regex mtlMaterialNamesRegex = new Regex(@"(?<start>(?:\n|^)\s*map_kd\s+)(?<texName>[^\s]+)", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.IgnoreCase);
         static int Main(string[] args)
         {
             if (args == null || args.Length != 1)
@@ -48,14 +49,20 @@ namespace MDL2Quake3OBJ_NET
         {
 
 
-            MdlFile mdl = MdlFile.FromFile(filename,false);
+            string filePathFull = Path.GetFullPath(filename);
+            MdlFile mdl = MdlFile.FromFile(filePathFull, true); // Need full path here because idk, Sledge is WEIRD and throwing random access exceptions for no fucking reason
             float smallestZ = 0;
 
 
             Directory.CreateDirectory("models/mdlConvert");
 
-            string filePathFull = Path.GetFullPath(filename);
+            string thisFilename = Path.GetFileName(filename);
+            string thisFilename_NoExt = Path.GetFileNameWithoutExtension(filename);
+
             string filePathOutputRelative = Path.Combine("models/mdlConvert",Path.ChangeExtension(Path.GetFileName(filename),".obj"));
+            string mtlPath = Path.Combine("models/mdlConvert",Path.ChangeExtension(thisFilename, ".mtl"));
+
+            bool conversionSuccess = false;
 
             // Do assimp conversion of model itself
             try
@@ -70,10 +77,14 @@ namespace MDL2Quake3OBJ_NET
 
                 Console.WriteLine(assimpProc.StandardOutput.ReadToEnd());
                 Console.WriteLine(assimpProc.StandardError.ReadToEnd());
+                conversionSuccess = true;
             } catch(Exception ex)
             {
                 Console.WriteLine($"Couldn't convert {filename} with assimp. Assimp not found.");
             }
+
+
+            Dictionary<string,string> textureNames = new Dictionary<string,string>(StringComparer.InvariantCultureIgnoreCase); 
             
             StringBuilder shaderString = new StringBuilder();
             StringBuilder shaderStringPOT = new StringBuilder();
@@ -81,7 +92,8 @@ namespace MDL2Quake3OBJ_NET
             foreach (Texture tex in mdl.Textures)
             {
 
-                string textureName = tex.Name;
+                string rawTextureName = tex.Name;
+                string textureName = rawTextureName;
 
                 ByteImage image = SharedStuff.GoldSrcImgToByteImage(tex.Width, tex.Height, tex.Data, tex.Palette, (tex.Flags & TextureFlags.Masked) > 0, false);
                 (TextureType type, int specialMatchCount) = SharedStuff.TextureTypeFromTextureName(tex.Name);
@@ -106,8 +118,13 @@ namespace MDL2Quake3OBJ_NET
                     thisShaderLightIntensity = radIntensities[textureName];
                 }
 
+                textureName = $"{thisFilename_NoExt}_{textureName}";
 
-                if((tex.Flags & TextureFlags.Chrome) > 0)
+                textureName = SharedStuff.fixUpShaderName(textureName);
+
+                textureNames[rawTextureName] = textureName;
+
+                if ((tex.Flags & TextureFlags.Chrome) > 0)
                 {
                     type |= TextureType.Chrome; // TODO?
                 }
@@ -176,11 +193,11 @@ namespace MDL2Quake3OBJ_NET
                 TGA myTGA = new TGA(imageBmp);
                 Directory.CreateDirectory("models/mdlConvert");
                 string suffix = resizedIsMain ? "_npot" : "";
-                if (type == TextureType.RandomTiling && textureName.Length > 1 && textureName[1] == '0')
-                {
-                    myTGA.Save($"{texturePath}_original{suffix}.tga"); // 0 one is replaced with a tiled version.
-                }
-                else
+                //if (type == TextureType.RandomTiling && textureName.Length > 1 && textureName[1] == '0')
+                //{
+                //    myTGA.Save($"{texturePath}_original{suffix}.tga"); // 0 one is replaced with a tiled version.
+                //}
+                //else
                 {
                     myTGA.Save($"{texturePath}{suffix}.tga");
                 }
@@ -206,9 +223,46 @@ namespace MDL2Quake3OBJ_NET
                 }
 
             }
+
+
+            string mtlContent = null;
+
+            if (conversionSuccess)
+            {
+                if (File.Exists(mtlPath))
+                {
+                    mtlContent = File.ReadAllText(mtlPath);
+
+                    bool anyReplacements = false;
+                    mtlContent = mtlMaterialNamesRegex.Replace(mtlContent, (Match a) => {
+                        string texName = a.Groups["texName"].Value;
+                        if (!textureNames.ContainsKey(texName))
+                        {
+                            return a.Value;
+                        }
+                        anyReplacements = true;
+                        return a.Groups["start"].Value + textureNames[texName];
+                    });
+
+                    if (anyReplacements)
+                    {
+                        File.WriteAllText(mtlPath, mtlContent);
+                    }
+                } else {
+                    Console.WriteLine($"{mtlPath} not found. Oo");
+                }
+
+            }
+
+
+
+
+
             Directory.CreateDirectory("shaders");
             File.AppendAllText("shaders/mdlConvertShaders.shader", shaderString.ToString());
             File.AppendAllText("shaders/mdlConvertShadersQ3MAP.shader", shaderStringPOT.ToString());
         }
+
+
     }
 }
