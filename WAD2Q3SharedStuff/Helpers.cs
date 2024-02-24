@@ -9,6 +9,54 @@ using System.Threading.Tasks;
 namespace WAD2Q3SharedStuff
 {
 
+
+    public class AverageHelperFloat
+    {
+
+        float value = 0;
+        int sampleCount = 0;
+
+        public AverageHelperFloat(){
+        }
+
+        public void addSample(float sample)
+        {
+            value += sample;
+            sampleCount++;
+        }
+
+        public float getValue()
+        {
+            return value / (float)sampleCount;
+        }
+    }
+    public class AverageHelperDouble
+    {
+
+        double value = 0;
+        int sampleCount = 0;
+
+        public AverageHelperDouble(){
+        }
+
+        public void addSample(double sample)
+        {
+            value += sample;
+            sampleCount++;
+        }
+
+        public double getValue()
+        {
+            return value / (double)sampleCount;
+        }
+        public double getValueOrDefault(double def = 0)
+        {
+            return sampleCount > 0 ? ( value / (double)sampleCount) : def;
+        }
+    }
+
+
+
     public class ByteImage
     {
         public byte[] imageData;

@@ -742,5 +742,113 @@ namespace WAD2Q3SharedStuff
             return radIntensities;
         }
 
+        static Regex emptySpaceRegex = new Regex(@"\s+", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        static public Vector3? parseVector3(string colorString)
+        {
+            string prefilteredColor = emptySpaceRegex.Replace(colorString, " ");
+            string[] components = prefilteredColor.Split(' ');
+
+            if (components.Length < 3)
+            {
+                Console.WriteLine("Vector3 with less than 3 components, skipping, weird.");
+                return null;
+            }
+
+            Vector3 parsedColor = new Vector3();
+
+            bool parseSuccess = true;
+            parseSuccess = parseSuccess && float.TryParse(components[0], out parsedColor.X);
+            parseSuccess = parseSuccess && float.TryParse(components[1], out parsedColor.Y);
+            parseSuccess = parseSuccess && float.TryParse(components[2], out parsedColor.Z);
+
+            if (!parseSuccess) return null;
+
+            return parsedColor;
+        }
+        
+        static public Vector4? parseVector4(string colorString)
+        {
+            string prefilteredColor = emptySpaceRegex.Replace(colorString, " ");
+            string[] components = prefilteredColor.Split(' ');
+
+            if (components.Length < 4)
+            {
+                Console.WriteLine("Vector4 with less than 4 components, skipping, weird.");
+                return null;
+            }
+
+            Vector4 parsedColor = new Vector4();
+
+            bool parseSuccess = true;
+            parseSuccess = parseSuccess && float.TryParse(components[0], out parsedColor.X);
+            parseSuccess = parseSuccess && float.TryParse(components[1], out parsedColor.Y);
+            parseSuccess = parseSuccess && float.TryParse(components[2], out parsedColor.Z);
+            parseSuccess = parseSuccess && float.TryParse(components[3], out parsedColor.W);
+
+            if (!parseSuccess) return null;
+
+            return parsedColor;
+        }
+
+
+        static public double[] parseDoubleArray(string colorString)
+        {
+            string prefilteredColor = emptySpaceRegex.Replace(colorString, " ");
+            string[] components = prefilteredColor.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            if (components.Length < 1)
+            {
+                Console.WriteLine("Vector3 with less than 3 components, skipping, weird.");
+                return null;
+            }
+
+            List<double> retVal = new List<double>();
+
+            foreach (string component in components)
+            {
+                retVal.Add(double.Parse(component));
+            }
+
+            return retVal.ToArray();
+        }
+
+        static public float[] parseFloatArray(string colorString)
+        {
+            string prefilteredColor = emptySpaceRegex.Replace(colorString, " ");
+            string[] components = prefilteredColor.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            if (components.Length < 1)
+            {
+                Console.WriteLine("Vector3 with less than 3 components, skipping, weird.");
+                return null;
+            }
+
+            List<float> retVal = new List<float>();
+
+            foreach (string component in components)
+            {
+                retVal.Add(float.Parse(component));
+            }
+
+            return retVal.ToArray();
+        }
+
+        static Regex numberVectorRegex = new Regex(@"([-\d\.\+E]+)\s+([-\d\.\+E]+)\s+([-\d\.\+E]+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        public static  Vector3[] parseVector3Array(string numbersString)
+        {
+            List<Vector3> retVal = new List<Vector3>();
+            MatchCollection matches = numberVectorRegex.Matches(numbersString);
+            foreach (Match match in matches)
+            {
+                Vector3? vector = parseVector3(match.Value);
+                if (vector != null)
+                {
+                    retVal.Add(vector.Value);
+                }
+            }
+            return retVal.ToArray();
+        }
+
     }
 }
