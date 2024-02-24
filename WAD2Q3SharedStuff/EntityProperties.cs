@@ -21,10 +21,11 @@ namespace WAD2Q3SharedStuff
             StringBuilder sb = new StringBuilder();
             foreach (var kvp in this)
             {
-                sb.Append($"\"{(kvp.Key + '\"').PadRight(10)} \"{kvp.Value}\"\n");
+                sb.Append($"\t\"{(kvp.Key + '\"').PadRight(10)} \"{kvp.Value}\"\n");
             }
             return sb.ToString();
         }
+
 
         static Regex singleEntityParseRegex = new Regex(@"(\s*""([^""]+)""[ \t]+""([^""]+)"")+\s*", RegexOptions.IgnoreCase | RegexOptions.Compiled);
         public static EntityProperties FromString(string propertiesString)

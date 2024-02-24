@@ -114,7 +114,7 @@ namespace FilterMapShaderNames
             double lightRVal = lightR.getValueOrDefault(255)/255.0;
             double lightGVal = lightG.getValueOrDefault(255) / 255.0;
             double lightBVal = lightB.getValueOrDefault(255) / 255.0;
-            double lightIntensityVal = lightIntensity.getValueOrDefault(50)*4.0;
+            double lightIntensityVal = lightIntensity.getValueOrDefault(50)*2.0;
             double lightPitchVal = lightPitch.getValueOrDefault();
             double lightYawVal = lightYaw.getValueOrDefault();
 
@@ -145,7 +145,7 @@ namespace FilterMapShaderNames
             skyShader.Append((-lightPitchVal).ToString("0.###")); 
             skyShader.Append(" 5 32"); 
             skyShader.Append("\n\tq3map_lightRGB 1 1 1");
-            skyShader.Append("\n\tq3map_surfacelight "+(lightIntensityVal/2).ToString("0.###"));
+            skyShader.Append("\n\tq3map_surfacelight "+(lightIntensityVal).ToString("0.###"));
             skyShader.Append("\n\tq3map_lightsubdivide 512");
             skyShader.Append("\n\tnotc");
             skyShader.Append("\n\tq3map_nolightmap");
@@ -165,7 +165,50 @@ namespace FilterMapShaderNames
                 return match.Groups["vecs"] + " wadConvert/" + SharedStuff.fixUpShaderName(shaderName) + " [";
             });
 
+            destText = entitiesParseRegex.Replace(destText,(Match entity)=> {
 
+                bool resave = false;
+                EntityProperties props = EntityProperties.FromString(entity.Value);
+                if (props["classname"].Equals("env_sprite", StringComparison.InvariantCultureIgnoreCase) && props.ContainsKey("model"))
+                {
+                    props["classname"] = "misc_model";
+                    props["model"] = "models/mdlConvert/"+Path.GetFileName(Path.ChangeExtension(props["model"],".obj"));
+                    resave = true;
+                }
+                if (props["classname"].Equals("func_wall", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    props["classname"] = "func_group";
+                    resave = true;
+                }
+                
+                if (props["classname"].Equals("ambient_generic", StringComparison.InvariantCultureIgnoreCase) && props.ContainsKey("message"))
+                {
+                    props["classname"] = "target_speaker";
+                    props["noise"] = "sound/"+props["message"];
+                    int originalSpawnFlags = 0;
+                    if(props.ContainsKey("message") && int.TryParse(props["spawnflags"],out originalSpawnFlags))
+                    {
+                        props["spawnflags_original"] = props["spawnflags"];
+                    }
+                    if((originalSpawnFlags & 16)>0) // Start silent
+                    {
+                        props["spawnflags"] = "2"; // looped, start silent
+                    } else
+                    {
+                        props["spawnflags"] = "1"; // looped
+                    }
+                    // Todo check spawnflag 32 "not toggled". however generally speaking we need to check if if we're dealing with a looping sound, which is based purely on the .wav file. ... sigh. fuck it for now.
+                    resave = true;
+                }
+
+                if (resave)
+                {
+                    return $"{{\n{props.ToString()}\n";
+                } else
+                {
+                    return entity.Value;
+                }
+            });
 
             File.WriteAllText($"{args[0]}.filtered.map", destText);
         }
