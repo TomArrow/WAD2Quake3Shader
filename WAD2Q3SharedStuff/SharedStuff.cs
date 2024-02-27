@@ -22,6 +22,7 @@ namespace WAD2Q3SharedStuff
         public bool disableShadows = false;
         public bool disableReceiveShadows = false;
         public bool isWater = false;
+        public bool nonSolid = false;
 
         public string GetHashString()
         {
@@ -64,6 +65,9 @@ namespace WAD2Q3SharedStuff
             sb.Append(";");
             sb.Append("isWater=");
             sb.Append(isWater.ToString());
+            sb.Append(";");
+            sb.Append("nonSolid=");
+            sb.Append(nonSolid.ToString());
             sb.Append(";");
             return sb.ToString();
         }
@@ -271,17 +275,84 @@ namespace WAD2Q3SharedStuff
                     Vector4 finalValue = new Vector4();
                     if (scaleY && scaleX)
                     {
+
                         Vector4 top = (topLeft * (float)sourceXLowWeight + topRight * (float)sourceXHighWeight) / (float)(sourceXLowWeight + sourceXHighWeight);
                         Vector4 bottom = (bottomLeft * (float)sourceXLowWeight + bottomRight * (float)sourceXHighWeight) / (float)(sourceXLowWeight + sourceXHighWeight);
                         finalValue = (top * (float)sourceYLowWeight + bottom * (float)sourceYHighWeight) / (float)(sourceYLowWeight + sourceYHighWeight);
+
+                        float trueAlpha = finalValue.W;
+
+                        bool allTransparent = topLeft.W == 0 && topRight.W == 0 && bottomLeft.W == 0 && bottomRight.W == 0;
+                        bool anyTransparent = topLeft.W == 0 || topRight.W == 0 || bottomLeft.W == 0 || bottomRight.W == 0;
+                        if (!allTransparent && anyTransparent) // Avoid blending colors of transparent pixels into the image.
+                        {
+                            double topweight = sourceYLowWeight;
+                            double bottomweight = sourceYHighWeight;
+                            if (topLeft.W == 0 && topRight.W == 0)
+                            {
+                                topweight = 0;
+                                bottomweight = 1;
+                            } else if ((topLeft.W == 0) != (topRight.W == 0))
+                            {
+                                if (topLeft.W == 0)
+                                {
+                                    top = topRight;
+                                } else
+                                {
+                                    top = topLeft;
+                                }
+                            }
+                            if (bottomLeft.W == 0 && bottomRight.W == 0)
+                            {
+                                bottomweight = 0;
+                                topweight = 1;
+                            } else if ((bottomLeft.W == 0) != (bottomRight.W == 0))
+                            {
+                                if (bottomLeft.W == 0)
+                                {
+                                    bottom = bottomRight;
+                                } else
+                                {
+                                    bottom = bottomLeft;
+                                }
+                            }
+                            finalValue = (top * (float)topweight + bottom * (float)bottomweight) / (float)(topweight + bottomweight);
+                            finalValue.W = trueAlpha;
+                        }
                     }
                     else if (scaleY)
                     {
                         finalValue = (topLeft * (float)sourceYLowWeight + bottomLeft * (float)sourceYHighWeight) / (float)(sourceYLowWeight + sourceYHighWeight);
+                        float trueAlpha = finalValue.W;
+                        if ((topLeft.W == 0) != (bottomLeft.W == 0)) // Don't blend transparent pixels into image
+                        {
+                            if(topLeft.W == 0)
+                            {
+                                finalValue = bottomLeft;
+                            }
+                            else
+                            {
+                                finalValue = topLeft;
+                            }
+                            finalValue.W = trueAlpha;
+                        } 
                     }
                     else if (scaleX)
                     {
                         finalValue = (topLeft * (float)sourceXLowWeight + topRight * (float)sourceXHighWeight) / (float)(sourceXLowWeight + sourceXHighWeight);
+                        float trueAlpha = finalValue.W;
+                        if ((topLeft.W == 0) != (topRight.W == 0)) // Don't blend transparent pixels into image
+                        {
+                            if (topLeft.W == 0)
+                            {
+                                finalValue = topRight;
+                            }
+                            else
+                            {
+                                finalValue = topLeft;
+                            }
+                            finalValue.W = trueAlpha;
+                        }
                     }
 
 
@@ -574,6 +645,7 @@ namespace WAD2Q3SharedStuff
                     {
                         float alpha = (float)renderProperties.renderamt / 255.0f;
                         mainStageProps.alphaGen = $"\n\t\talphaGen const "+ alpha.ToString("0.###");
+                        shaderString.Append($"\n\tcull none");
                         shaderString.Append($"\n\tsurfaceparm nonopaque");
                         shaderString.Append($"\n\tqer_trans " + Math.Max(alpha,0.3).ToString("0.###"));
                         if ((type & TextureType.WaterFluid) == 0 && (type & TextureType.Slime) == 0)
@@ -586,6 +658,10 @@ namespace WAD2Q3SharedStuff
                     if (renderProperties.disableShadows)
                     {
                         shaderString.Append($"\n\tsurfaceparm nonopaque");
+                    }
+                    if (renderProperties.nonSolid)
+                    {
+                        shaderString.Append($"\n\tsurfaceparm nonsolid");
                     }
                     if (renderProperties.renderColor.HasValue )
                     {
@@ -1074,6 +1150,11 @@ namespace WAD2Q3SharedStuff
             if(props.ContainsKey("classname") && props["classname"].Equals("func_water", StringComparison.InvariantCultureIgnoreCase))
             {
                 renderprops.isWater = true;
+                specialPropertiesFound = true;
+            }
+            if(props.ContainsKey("classname") && props["classname"].Equals("func_illusionary", StringComparison.InvariantCultureIgnoreCase))
+            {
+                renderprops.nonSolid = true;
                 specialPropertiesFound = true;
             }
             if (!props.ContainsKey("rendermode") || !int.TryParse(props["rendermode"], out renderprops.rendermode))

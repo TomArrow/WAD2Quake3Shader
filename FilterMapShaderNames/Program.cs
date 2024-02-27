@@ -18,7 +18,7 @@ namespace FilterMapShaderNames
         
         static Regex faceEndNumbersParse = new Regex(@"(?<start>\[\s*([-\d\.\+E]+)\s+([-\d\.\+E]+)\s+([-\d\.\+E]+)\s+([-\d\.\+E]+)\s*\]\s*(?:[-\d\.\+E]+\s*){3})(?<extraValues>(?:[-\d\.\+E]+\s*){3})?", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-        static string propsBrushMatcher = @"(?<props>\{(\s*""([^""]+)""[ \t]+""([^""]+)"")+)(?<brushes>(?:\s*\{(?:[^\{\}]++|(?:(?<!\s)[\{\}])++|(?R))*+(?<=\s)\})*\s+\})";
+        static string propsBrushMatcher = @"(?<props>\{(\s*""([^""]+)""[ \t]+""([^""]+)"")+)(?<brushes>(?:\s*\{(?:[^\{\}]++|(?:[\{\}](?!\s))++|(?R))*+(?<=\s)\})*\s+\})";
 
         const int detailFlag = 0x8000000;
 
@@ -325,7 +325,7 @@ namespace FilterMapShaderNames
             double lightRVal = lightR.getValueOrDefault(255)/255.0;
             double lightGVal = lightG.getValueOrDefault(255) / 255.0;
             double lightBVal = lightB.getValueOrDefault(255) / 255.0;
-            double lightIntensityVal = lightIntensity.getValueOrDefault(50); // had it *2 but it was a bit too bright, maybe leave. but that was jka compile? hm
+            double lightIntensityVal = lightIntensity.getValueOrDefault(50)*2.0; // had it *2 but it was a bit too bright, maybe leave. but that was jka compile? hm
             double lightPitchVal = lightPitch.getValueOrDefault();
             double lightYawVal = lightYaw.getValueOrDefault();
 
@@ -420,14 +420,15 @@ namespace FilterMapShaderNames
                     brushesString = MakeFacesDetail(brushesString);
                     resave = true;
                 }
-                if (props["classname"].Equals("func_water", StringComparison.InvariantCultureIgnoreCase))
+                else if (props["classname"].Equals("func_water", StringComparison.InvariantCultureIgnoreCase))
                 {
                     props["classname"] = "func_group";
                     brushesString = MakeFacesDetail(brushesString);
                     resave = true;
                 }
-                if (props["classname"].Equals("func_illusionary", StringComparison.InvariantCultureIgnoreCase))
+                else if (props["classname"].Equals("func_illusionary", StringComparison.InvariantCultureIgnoreCase)) // We do make a nonsolid shader for this higher up
                 {
+                    props["classname"] = "func_group";
                     brushesString = MakeFacesDetail(brushesString);
                     resave = true;
                 }
