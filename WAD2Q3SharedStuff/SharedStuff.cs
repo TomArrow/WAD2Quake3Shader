@@ -810,6 +810,13 @@ namespace WAD2Q3SharedStuff
                     {
                         transparentPixelsFound = true;
                     }
+                    if(image.imageData[image.stride * y + x * 4 + 3] == 0)
+                    {
+                        // Null out transparent pixels to avoid ugly seams caused by... idk really. Mipmaps?
+                        image.imageData[image.stride * y + x * 4] = 0;
+                        image.imageData[image.stride * y + x * 4 + 1] = 0;
+                        image.imageData[image.stride * y + x * 4 + 2] = 0;
+                    }
                 }
             }
 
