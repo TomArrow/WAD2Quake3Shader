@@ -9,6 +9,7 @@ using System.Collections.Generic;
 
 namespace FilterMapShaderNames
 {
+    // TODO Func_illusionary nonsolid shaders.
     class Program
     {
         static Regex findShader = new Regex(@"(?<vecs>(?:\((?:\s*[-\d\.]+){3}\s*\)\s*){3}\s*)(?<shaderName>.*?)\s*\[", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline);
@@ -324,7 +325,7 @@ namespace FilterMapShaderNames
             double lightRVal = lightR.getValueOrDefault(255)/255.0;
             double lightGVal = lightG.getValueOrDefault(255) / 255.0;
             double lightBVal = lightB.getValueOrDefault(255) / 255.0;
-            double lightIntensityVal = lightIntensity.getValueOrDefault(50); // had it *2 but it was a bit too bright, maybe leave like this
+            double lightIntensityVal = lightIntensity.getValueOrDefault(50); // had it *2 but it was a bit too bright, maybe leave. but that was jka compile? hm
             double lightPitchVal = lightPitch.getValueOrDefault();
             double lightYawVal = lightYaw.getValueOrDefault();
 
@@ -387,6 +388,14 @@ namespace FilterMapShaderNames
                 string propsString = entity.Groups["props"].Value;
                 string brushesString = entity.Groups["brushes"].Value;
                 EntityProperties props = EntityProperties.FromString(propsString);
+                if (props.ContainsKey("Angles"))
+                {
+                    // Make it lowercase cuz radiant is a bit of a dummy sometimes :)
+                    string anglesTmp = props["Angles"];
+                    props.Remove("Angles");
+                    props["angles"] = anglesTmp;
+                    resave = true;
+                }
                 if (props["classname"].Equals("env_sprite", StringComparison.InvariantCultureIgnoreCase) && props.ContainsKey("model"))
                 {
                     props["classname"] = "misc_model";
