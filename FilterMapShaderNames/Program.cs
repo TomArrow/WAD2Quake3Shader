@@ -324,7 +324,7 @@ namespace FilterMapShaderNames
             double lightRVal = lightR.getValueOrDefault(255)/255.0;
             double lightGVal = lightG.getValueOrDefault(255) / 255.0;
             double lightBVal = lightB.getValueOrDefault(255) / 255.0;
-            double lightIntensityVal = lightIntensity.getValueOrDefault(50)*2.0;
+            double lightIntensityVal = lightIntensity.getValueOrDefault(50); // had it *2 but it was a bit too bright, maybe leave like this
             double lightPitchVal = lightPitch.getValueOrDefault();
             double lightYawVal = lightYaw.getValueOrDefault();
 
@@ -388,6 +388,18 @@ namespace FilterMapShaderNames
                 string brushesString = entity.Groups["brushes"].Value;
                 EntityProperties props = EntityProperties.FromString(propsString);
                 if (props["classname"].Equals("env_sprite", StringComparison.InvariantCultureIgnoreCase) && props.ContainsKey("model"))
+                {
+                    props["classname"] = "misc_model";
+                    props["model"] = "models/mdlConvert/"+Path.GetFileName(Path.ChangeExtension(props["model"],".obj"));
+                    resave = true;
+                }
+                else if (props["classname"].Equals("cycler_sprite", StringComparison.InvariantCultureIgnoreCase) && props.ContainsKey("model"))
+                {
+                    props["classname"] = "misc_model";
+                    props["model"] = "models/mdlConvert/"+Path.GetFileName(Path.ChangeExtension(props["model"],".obj"));
+                    resave = true;
+                }
+                else if (props.ContainsKey("model") && props["model"].EndsWith(".mdl",StringComparison.InvariantCultureIgnoreCase))
                 {
                     props["classname"] = "misc_model";
                     props["model"] = "models/mdlConvert/"+Path.GetFileName(Path.ChangeExtension(props["model"],".obj"));

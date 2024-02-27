@@ -574,7 +574,7 @@ namespace WAD2Q3SharedStuff
                         float alpha = (float)renderProperties.renderamt / 255.0f;
                         mainStageProps.alphaGen = $"\n\t\talphaGen const "+ alpha.ToString("0.###");
                         shaderString.Append($"\n\tsurfaceparm nonopaque");
-                        shaderString.Append($"\n\tqer_trans " + alpha.ToString("0.###"));
+                        shaderString.Append($"\n\tqer_trans " + Math.Max(alpha,0.5).ToString("0.###"));
                         if ((type & TextureType.WaterFluid) == 0 && (type & TextureType.Slime) == 0)
                         {
                             // Water we handle a bit differently but outside of that, just make it a vertex lit transparent thing?
