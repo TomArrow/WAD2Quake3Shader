@@ -597,6 +597,7 @@ namespace WAD2Q3SharedStuff
                 }
                 if ((type & TextureType.DecalBrighten) > 0 || (type & TextureType.Additive) > 0)
                 {
+                    shaderString.Append($"\n\tsort additive");
                     mainStageProps.blendFunc = $"\n\t\tblendFunc GL_ONE GL_ONE";
                     // mainStageProps.rgbGen = $"\n\t\trgbGen identity";
                 }
