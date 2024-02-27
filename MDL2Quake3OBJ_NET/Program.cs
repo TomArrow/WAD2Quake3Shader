@@ -174,7 +174,7 @@ namespace MDL2Quake3OBJ_NET
                 string texturePath = SharedStuff.fixUpShaderName($"models/mdlConvert/{textureName}");
 
 
-                (bool onlyPOT, string shaderText) = SharedStuff.MakeShader(type, texturePath, $"map {texturePath}", resizedImage != null, thisShaderLightIntensity);
+                (bool onlyPOT, string shaderText) = SharedStuff.MakeShader(type, texturePath, $"map {texturePath}", resizedImage != null, thisShaderLightIntensity); // For models we cull transparent textures by default
 
                 if (shaderText != null)
                 {

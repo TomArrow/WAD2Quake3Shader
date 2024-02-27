@@ -373,7 +373,7 @@ namespace WAD2Q3SharedStuff
         }
 
         // TODO For any shader that gets deformvertexes, make a version without it. It's not always desirable (3d blocks of water streaming down for example).
-        public static (bool, string) MakeShader(TextureType type, string shaderName, string mapString, bool resized, Vector4? radIntensity, RenderProperties renderProperties = null, string shaderMainNameOverride = null)
+        public static (bool, string) MakeShader(TextureType type, string shaderName, string mapString, bool resized, Vector4? radIntensity, RenderProperties renderProperties = null, string shaderMainNameOverride = null, bool cullTransparent = true)
         {
             StringBuilder shaderString = new StringBuilder();
             bool shaderWritten = false;
@@ -554,7 +554,10 @@ namespace WAD2Q3SharedStuff
                     shaderString.Append($"\n\tsurfaceparm alphashadow");
                     shaderString.Append($"\n\tsurfaceparm nonopaque");
                     shaderString.Append($"\n\tsurfaceparm trans");
-                    shaderString.Append($"\n\tcull none");
+                    if (!cullTransparent)
+                    {
+                        shaderString.Append($"\n\tcull none");
+                    }
                     shaderString.Append($"\n\tqer_trans 0.5");
 
 
@@ -571,8 +574,11 @@ namespace WAD2Q3SharedStuff
                 {
                     shaderString.Append($"\n\tsurfaceparm lightfilter");
                     shaderString.Append($"\n\tsurfaceparm nonopaque");
-                    shaderString.Append($"\n\tsurfaceparm trans");
-                    shaderString.Append($"\n\tcull none");
+                    shaderString.Append($"\n\tsurfaceparm trans"); 
+                    if (!cullTransparent)
+                    {
+                        shaderString.Append($"\n\tcull none");
+                    }
                     shaderString.Append($"\n\tqer_trans 0.5");
 
                     mainStageProps.blendFunc = $"\n\t\tblendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA";
@@ -645,8 +651,11 @@ namespace WAD2Q3SharedStuff
                     if(renderProperties.renderamt != -1 && renderProperties.renderamt != 255/* && renderProperties.rendermode != 0*/) // rendermode 0 (normal) doesn't respect this stuff. but keep it anyway, whatever
                     {
                         float alpha = (float)renderProperties.renderamt / 255.0f;
-                        mainStageProps.alphaGen = $"\n\t\talphaGen const "+ alpha.ToString("0.###");
-                        shaderString.Append($"\n\tcull none");
+                        mainStageProps.alphaGen = $"\n\t\talphaGen const "+ alpha.ToString("0.###"); 
+                        if (!cullTransparent)
+                        {
+                            shaderString.Append($"\n\tcull none");
+                        }
                         shaderString.Append($"\n\tsurfaceparm nonopaque");
                         shaderString.Append($"\n\tqer_trans " + Math.Max(alpha,0.3).ToString("0.###"));
                         if ((type & TextureType.WaterFluid) == 0 && (type & TextureType.Slime) == 0)
