@@ -590,9 +590,12 @@ namespace WAD2Q3SharedStuff
                         hasLightMapStage = false;
                     }
                 }
-                if ((type & TextureType.DecalDarken) > 0 || (type & TextureType.DecalBrighten) > 0 || (type & TextureType.Additive) > 0)
+                if ((type & TextureType.DecalDarken) > 0 || (type & TextureType.DecalBrighten) > 0)
                 {
                     shaderString.Append($"\n\tpolygonOffset");
+                }
+                if ((type & TextureType.DecalDarken) > 0 || (type & TextureType.DecalBrighten) > 0 || (type & TextureType.Additive) > 0)
+                {
                     shaderString.Append($"\n\tq3map_nolightmap");
                     shaderString.Append($"\n\tqer_trans 0.5");
                 }
