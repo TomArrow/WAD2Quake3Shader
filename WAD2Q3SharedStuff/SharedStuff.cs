@@ -4,12 +4,79 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Numerics;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using Litdex.Random.PRNG;
+using PCRE;
 
 namespace WAD2Q3SharedStuff
 {
+
+    public class RenderProperties
+    {
+        public int rendermode = -1;
+        public int renderfx = -1;
+        public int renderamt = -1;
+        public Vector3? renderColor = null;
+        public bool disableShadows = false;
+        public bool disableReceiveShadows = false;
+        public bool isWater = false;
+
+        public string GetHashString()
+        {
+            SHA256 blah = SHA256.Create();
+
+            byte[] hashValue = blah.ComputeHash(Encoding.Latin1.GetBytes(ToHashableString()));
+            return SharedStuff.ByteArrayToString(hashValue);
+        }
+
+        public string ToHashableString()
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.Append("rendermode=");
+            sb.Append(rendermode.ToString());
+            sb.Append(";");
+            sb.Append("renderfx=");
+            sb.Append(renderfx.ToString());
+            sb.Append(";");
+            sb.Append("renderamt=");
+            sb.Append(renderamt.ToString());
+            sb.Append(";");
+            sb.Append("renderColor=");
+            if (renderColor.HasValue)
+            {
+                sb.Append(renderColor.Value.X.ToString());
+                sb.Append(",");
+                sb.Append(renderColor.Value.Y.ToString());
+                sb.Append(",");
+                sb.Append(renderColor.Value.Z.ToString());
+            } else
+            {
+                sb.Append("NULL");
+            }
+            sb.Append(";");
+            sb.Append("disableShadows=");
+            sb.Append(disableShadows.ToString());
+            sb.Append(";");
+            sb.Append("disableReceiveShadows=");
+            sb.Append(disableReceiveShadows.ToString());
+            sb.Append(";");
+            sb.Append("isWater=");
+            sb.Append(isWater.ToString());
+            sb.Append(";");
+            return sb.ToString();
+        }
+    }
+
+    public class ShaderDupe
+    {
+        public List<string> files = new List<string>();
+        public List<string> bodies = new List<string>();
+        public string chosenFile = null;
+        public bool used = false;
+    }
+
     [Flags]
     public enum TextureType
     {
@@ -30,6 +97,7 @@ namespace WAD2Q3SharedStuff
         Additive = (1 << 14),
         Fullbright = (1 << 15),
         Chrome = (1 << 16),
+        TrueAlphaTransparency = (1 << 17),
     }
 
 
@@ -228,15 +296,16 @@ namespace WAD2Q3SharedStuff
         {
             public string blendFunc = "";
             public string rgbGen = "";
+            public string alphaGen = "";
             public string tcMod = "";
         }
 
         // TODO For any shader that gets deformvertexes, make a version without it. It's not always desirable (3d blocks of water streaming down for example).
-        public static (bool, string) MakeShader(TextureType type, string shaderName, string mapString, bool resized, Vector4? radIntensity)
+        public static (bool, string) MakeShader(TextureType type, string shaderName, string mapString, bool resized, Vector4? radIntensity, RenderProperties renderProperties = null, string shaderMainNameOverride = null)
         {
             StringBuilder shaderString = new StringBuilder();
             bool shaderWritten = false;
-            if ((type & TextureType.WaterFluid) > 0 || (type & TextureType.Transparent) > 0 || (type & TextureType.DecalDarken) > 0 || (type & TextureType.DecalBrighten) > 0 
+            if (renderProperties != null || (type & TextureType.WaterFluid) > 0 || (type & TextureType.Transparent) > 0 || (type & TextureType.DecalDarken) > 0 || (type & TextureType.DecalBrighten) > 0 
                 || (type & TextureType.LightEmitting) > 0 || (type & TextureType.Scroll) > 0 || (type & TextureType.Toggling) > 0 || (type & TextureType.Lava) > 0 || (type & TextureType.Slime) > 0
                 || (type & TextureType.PseudoWater) > 0   || (type & TextureType.PseudoLava) > 0   || (type & TextureType.PseudoSlime) > 0   || (type & TextureType.Additive) > 0   || (type & TextureType.Fullbright) > 0  || (type & TextureType.Chrome) > 0)
             {
@@ -244,6 +313,26 @@ namespace WAD2Q3SharedStuff
 
                 StringBuilder lightmapStage = new StringBuilder();
                 StringBuilder mainMapStage = new StringBuilder();
+
+                if (renderProperties != null)
+                {
+                    if (renderProperties.isWater)
+                    {
+                        type |= TextureType.WaterFluid;
+                    }
+                    if (renderProperties.rendermode == 4)
+                    {
+                        type |= TextureType.Transparent;
+                    }
+                    else if (renderProperties.rendermode == 5)
+                    {
+                        type |= TextureType.Additive;
+                    }
+                    else if (renderProperties.rendermode == 8)
+                    {
+                        type |= TextureType.TrueAlphaTransparency;
+                    }
+                }
 
 
                 lightmapStage.Append($"\n\t{{");
@@ -263,7 +352,13 @@ namespace WAD2Q3SharedStuff
                 mainStageProps.rgbGen = $"\n\t\trgbGen identity";
                 lightStageProps.rgbGen = $"\n\t\trgbGen identity";
 
-                shaderString.Append($"\n{shaderName}\n{{");
+                if(shaderMainNameOverride != null)
+                {
+                    shaderString.Append($"\n{shaderMainNameOverride}\n{{");
+                } else
+                {
+                    shaderString.Append($"\n{shaderName}\n{{");
+                }
                 if (resized)
                 {
                     shaderString.Append($"\n\tqer_editorimage {shaderName}_npot");
@@ -306,7 +401,7 @@ namespace WAD2Q3SharedStuff
                         shaderString.Append($"\n\tq3map_material Water");
                         shaderString.Append($"\n\tqer_trans 0.5");
                         mainStageProps.blendFunc = $"\n\t\tblendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA";
-                        mainMapStage.Append($"\n\t\talphaGen const 0.5");
+                        mainStageProps.alphaGen = $"\n\t\talphaGen const 0.5";
                         lightStageProps.blendFunc = $"\n\t\tblendFunc GL_DST_COLOR GL_ZERO";
                     }
                     else
@@ -400,6 +495,23 @@ namespace WAD2Q3SharedStuff
                     lightmapStage.Append($"\n\t\tdepthFunc equal");
                     //lightStageProps.rgbGen = $"\n\t\trgbGen identity";
                 }
+                if ((type & TextureType.TrueAlphaTransparency) > 0)
+                {
+                    shaderString.Append($"\n\tsurfaceparm lightfilter");
+                    shaderString.Append($"\n\tsurfaceparm nonopaque");
+                    shaderString.Append($"\n\tsurfaceparm trans");
+                    shaderString.Append($"\n\tcull none");
+                    shaderString.Append($"\n\tqer_trans 0.5");
+
+                    mainStageProps.blendFunc = $"\n\t\tblendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA";
+
+                    if ((type & TextureType.WaterFluid) == 0 && (type & TextureType.Slime) == 0)
+                    {
+                        // Water we handle a bit differently but outside of that, just make it a vertex lit transparent thing?
+                        mainStageProps.rgbGen = $"\n\t\trgbGen vertex";
+                        hasLightMapStage = false;
+                    }
+                }
                 if ((type & TextureType.DecalDarken) > 0 || (type & TextureType.DecalBrighten) > 0 || (type & TextureType.Additive) > 0)
                 {
                     shaderString.Append($"\n\tpolygonOffset");
@@ -455,12 +567,40 @@ namespace WAD2Q3SharedStuff
                     mainStageProps.tcMod += $"\n\t\ttcMod scroll -0.5 0";
                 }
 
+
+                if (renderProperties != null) { 
+                    if(renderProperties.renderamt != -1 && renderProperties.renderamt != 255/* && renderProperties.rendermode != 0*/) // rendermode 0 (normal) doesn't respect this stuff. but keep it anyway, whatever
+                    {
+                        float alpha = (float)renderProperties.renderamt / 255.0f;
+                        mainStageProps.alphaGen = $"\n\t\talphaGen const "+ alpha.ToString("0.###");
+                        shaderString.Append($"\n\tsurfaceparm nonopaque");
+                        shaderString.Append($"\n\tqer_trans " + alpha.ToString("0.###"));
+                        if ((type & TextureType.WaterFluid) == 0 && (type & TextureType.Slime) == 0)
+                        {
+                            // Water we handle a bit differently but outside of that, just make it a vertex lit transparent thing?
+                            mainStageProps.rgbGen = $"\n\t\trgbGen vertex";
+                            hasLightMapStage = false;
+                        }
+                    }
+                    if (renderProperties.disableShadows)
+                    {
+                        shaderString.Append($"\n\tsurfaceparm nonopaque");
+                    }
+                    if (renderProperties.renderColor.HasValue )
+                    {
+                        mainStageProps.rgbGen = $"\n\t\trgbGen const ( " + renderProperties.renderColor.Value.X.ToString("0.###") + " "+ renderProperties.renderColor.Value.Y.ToString("0.###") + " "+ renderProperties.renderColor.Value.Z.ToString("0.###") + " )";
+                    }
+                }
+
+
                 mainMapStage.Append(mainStageProps.blendFunc);
                 mainMapStage.Append(mainStageProps.rgbGen);
+                mainMapStage.Append(mainStageProps.alphaGen);
                 mainMapStage.Append(mainStageProps.tcMod);
 
                 lightmapStage.Append(lightStageProps.blendFunc);
                 lightmapStage.Append(lightStageProps.rgbGen);
+                lightmapStage.Append(lightStageProps.alphaGen);
                 lightmapStage.Append(lightStageProps.tcMod);
 
 
@@ -868,6 +1008,136 @@ namespace WAD2Q3SharedStuff
                 }
             }
             return retVal.ToArray();
+        }
+
+        public static string[] crawlDirectory(string dir)
+        {
+            if (!Directory.Exists(dir))
+            {
+                return new string[0];
+            }
+            List<string> filesAll = new List<string>();
+            filesAll.AddRange(Directory.GetFiles(dir));
+            string[] dirs = Directory.GetDirectories(dir);
+            foreach (string subdir in dirs)
+            {
+                filesAll.AddRange(crawlDirectory(subdir));
+            }
+
+            return filesAll.ToArray();
+        }
+
+        public static void ParseShader(string file, ref Dictionary<string, string> shaderData, Dictionary<string, ShaderDupe> shaderDuplicates = null)
+        {
+            string shaderText = File.ReadAllText(file);
+
+            // WIP: (?:^|\n)\s*(?<shaderName>(?:[-_\w\d:]|(?<!\/)\/)+)?\s*(?:\/\/[^\n]+\s*)*+(?<shaderBody>(?:\n\s*\{)(?:(?:\/\/[^\n]*)|[^\{\}]|(?R))*(?:\n\s*\}))
+            // WIP: (?:^|\n)\s*(?<shaderName>(?:[-_\w\d:]|(?<!\/)\/)+)?\s*(?:\/\/[^\n]+\s*)*+(?<shaderBody>(?:[\n\r]+\s*\{)(?:(?:\/\/[^\n\r]*)|[^\{\}\/]|(?<!\/)\/(?!\/)|(?R))*(?:[\n\r]+\s*\}))
+            // WIP: (?:^|\n)\s*(?<shaderName>(?:[-_\w\d:]|(?<!\/)\/)+)?\s*(?:\/\/[^\n]+\s*)*+(?<shaderBody>(?:\{)(?:(?:\/\/[^\n\r]*+)|[^\{\}\/]|(?<!\/)\/(?!\/)|(?R))*(?:\}))
+            // old : var otherMatches = PcreRegex.Matches(shaderText, @"(?:^|\n)\s*(?<shaderName>(?:[-_\w\d:]|(?<!\/)\/)+)?\s*(?:\/\/[^\n]+\s*)*+(?<shaderBody>\{(?:[^\{\}]|(?R))*\})");
+            var matches = PcreRegex.Matches(shaderText, @"(?:^|\n)\s*(?<shaderName>(?:[-_\w\d:]|(?<!\/)\/)+)?\s*(?:\/\/[^\n]+\s*)*+(?<shaderBody>(?:\{)(?:(?:\/\/[^\n\r]*+)|[^\{\}\/]|(?<!\/)\/(?!\/)|(?R))*(?:\}))");
+            foreach (var match in matches)
+            {
+                string shaderName = match.Groups["shaderName"].Value;
+                string shaderBody = match.Groups["shaderBody"].Value;
+                if (shaderDuplicates != null)
+                {
+                    if (!shaderDuplicates.ContainsKey(shaderName))
+                    {
+                        shaderDuplicates[shaderName] = new ShaderDupe();
+                    }
+                    if (shaderDuplicates[shaderName].files.Count == 0)
+                    {
+                        // The main shader we use is the first we find.
+                        shaderData[shaderName] = shaderBody;
+                        shaderDuplicates[shaderName].chosenFile = file;
+                    }
+                    shaderDuplicates[shaderName].files.Add(file);
+                    shaderDuplicates[shaderName].bodies.Add(shaderBody);
+                }
+                else
+                {
+                    shaderData[shaderName] = shaderBody;
+                }
+            }
+
+        }
+
+
+
+
+        public static RenderProperties ParseRenderProperties(EntityProperties props)
+        {
+            bool specialPropertiesFound = false;
+            RenderProperties renderprops = new RenderProperties();
+            if(props.ContainsKey("classname") && props["classname"].Equals("func_water", StringComparison.InvariantCultureIgnoreCase))
+            {
+                renderprops.isWater = true;
+                specialPropertiesFound = true;
+            }
+            if (!props.ContainsKey("rendermode") || !int.TryParse(props["rendermode"], out renderprops.rendermode))
+            {
+                renderprops.rendermode = -1;
+            }
+            else if (renderprops.rendermode != 0)
+            {
+                specialPropertiesFound = true;
+            }
+            if (!props.ContainsKey("renderfx") || !int.TryParse(props["renderfx"], out renderprops.renderfx))
+            {
+                renderprops.renderfx = -1;
+            }
+            else if (renderprops.renderfx != 0)
+            {
+                specialPropertiesFound = true;
+            }
+            if (!props.ContainsKey("renderamt") || !int.TryParse(props["renderamt"], out renderprops.renderamt))
+            {
+                renderprops.renderamt = -1;
+            }
+            else if (renderprops.renderamt != 255)
+            {
+                specialPropertiesFound = true;
+            }
+
+            if (props.ContainsKey("renderColor"))
+            {
+                double[] renderColor = SharedStuff.parseDoubleArray(props["renderColor"]);
+                if (renderColor != null && renderColor.Length > 2 && (renderColor[0] > 0 || renderColor[1] > 0 || renderColor[2] > 0))
+                {
+                    renderprops.renderColor = new Vector3() { 
+                            X= (float)(renderColor[0] / 255.0),
+                            Y= (float)(renderColor[1] / 255.0),
+                            Z= (float)(renderColor[2] / 255.0),
+                    };
+                    specialPropertiesFound = true;
+                }
+            }
+
+            // Todo do these extra ones? disableshadows disablereceiveshadows  
+            int tmp = 0;
+            if (props.ContainsKey("disableshadows") && int.TryParse(props["disableshadows"], out tmp))
+            {
+                renderprops.disableShadows = tmp != 0;
+                specialPropertiesFound = true;
+            }
+            if (props.ContainsKey("disablereceiveshadows") && int.TryParse(props["disablereceiveshadows"], out tmp))
+            {
+                renderprops.disableReceiveShadows = tmp != 0; // Idk if this is even possible
+                specialPropertiesFound = true;
+            }
+
+
+            return specialPropertiesFound ? renderprops : null;
+        }
+
+        public static string ByteArrayToString(byte[] blah)
+        {
+            StringBuilder hexedString = new StringBuilder(blah.Length*2);
+            foreach(byte b in blah){
+                hexedString.AppendFormat("{0:x2}",b);
+            }
+            return hexedString.ToString();
         }
 
     }

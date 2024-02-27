@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <PackageReference Include="Litdex.Random" Version="1.0.0" />
+    <PackageReference Include="PCRE.NET" Version="0.20.0" />
     <PackageReference Include="System.Drawing.Common" Version="5.0.3" />
   </ItemGroup>
 
