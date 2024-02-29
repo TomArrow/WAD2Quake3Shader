@@ -60,28 +60,51 @@ namespace MDL2Quake3OBJ_NET
             string thisFilename_NoExt = Path.GetFileNameWithoutExtension(filename);
 
             string filePathOutputRelative = Path.Combine("models/mdlConvert",Path.ChangeExtension(Path.GetFileName(filename),".obj"));
+            string filePathOutputFull = Path.GetFullPath(filePathOutputRelative);
             string mtlPath = Path.Combine("models/mdlConvert",Path.ChangeExtension(thisFilename, ".mtl"));
 
             bool conversionSuccess = false;
 
-            // Do assimp conversion of model itself
+            // Do MDL2Quake3OBJ conversion of model itself
             try
             {
-                Process assimpProc = new Process();
-                assimpProc.StartInfo.RedirectStandardOutput = true;
-                assimpProc.StartInfo.RedirectStandardError = true;
-                assimpProc.StartInfo.FileName = "assimp";
-                assimpProc.StartInfo.Arguments = $"export \"{filePathFull}\" \"{filePathOutputRelative}\"";
-                assimpProc.Start();
-                assimpProc.WaitForExit();
+                Process mdl2quake3obj = new Process();
+                mdl2quake3obj.StartInfo.RedirectStandardOutput = true;
+                mdl2quake3obj.StartInfo.RedirectStandardError = true;
+                mdl2quake3obj.StartInfo.FileName = "MDL2Quake3OBJ";
+                mdl2quake3obj.StartInfo.Arguments = $"\"{filePathFull}\" \"{filePathOutputFull}\"";
+                mdl2quake3obj.Start();
+                mdl2quake3obj.WaitForExit();
 
-                Console.WriteLine(assimpProc.StandardOutput.ReadToEnd());
-                Console.WriteLine(assimpProc.StandardError.ReadToEnd());
+                string standardOutput = mdl2quake3obj.StandardOutput.ReadToEnd();
+                string standardError = mdl2quake3obj.StandardError.ReadToEnd();
+                Console.WriteLine(standardOutput);
+                Console.WriteLine(standardError);
                 conversionSuccess = true;
             } catch(Exception ex)
             {
-                Console.WriteLine($"Couldn't convert {filename} with assimp. Assimp not found.");
+                Console.WriteLine($"WARNING WARNING WARNING: Couldn't convert {filename} with MDL2Quake3OBJ. Maybe not found. Will try assimp instead. Error: {ex.ToString()}");
+                // Try assimp? Will have messed up coordinates tho.
+                try
+                {
+                    Process assimpProc = new Process();
+                    assimpProc.StartInfo.RedirectStandardOutput = true;
+                    assimpProc.StartInfo.RedirectStandardError = true;
+                    assimpProc.StartInfo.FileName = "assimp";
+                    assimpProc.StartInfo.Arguments = $"export \"{filePathFull}\" \"{filePathOutputRelative}\"";
+                    assimpProc.Start();
+                    assimpProc.WaitForExit();
+
+                    Console.WriteLine(assimpProc.StandardOutput.ReadToEnd());
+                    Console.WriteLine(assimpProc.StandardError.ReadToEnd());
+                    conversionSuccess = true;
+                }
+                catch (Exception ex2)
+                {
+                    Console.WriteLine($"Couldn't convert {filename} with assimp. Assimp not found. Error: {ex2.ToString()}");
+                }
             }
+            
 
 
             Dictionary<string,string> textureNames = new Dictionary<string,string>(StringComparer.InvariantCultureIgnoreCase); 

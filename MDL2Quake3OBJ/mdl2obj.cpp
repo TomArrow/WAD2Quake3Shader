@@ -37,6 +37,12 @@ int main(int argc, char** argv) {
 	*(dotChar+2) = 't';
 	*(dotChar+3) = 'l';
 
+
+	std::cout << "mdl 2 obj processing: \n";
+	std::cout << filename << "\n";
+	std::cout << filenameOut << "\n";
+	std::cout << fileNameOutMtl << "\n";
+
 	ControlPanel panel;
 	panel.loadModel(filename);
 
@@ -55,7 +61,7 @@ int main(int argc, char** argv) {
 	mtlFile << ssMtl.str();
 	mtlFile.close();
 
-	std::cout << "hello world";
+	std::cout << "conversion done.";
 
 	delete[] fileNameOutMtl;
 	return 0;

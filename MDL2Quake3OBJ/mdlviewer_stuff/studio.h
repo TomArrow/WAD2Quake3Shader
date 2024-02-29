@@ -137,7 +137,8 @@ typedef struct
 } mstudiobbox_t;
 
 #ifndef ZONE_H
-typedef void *cache_user_t;
+//typedef void *cache_user_t;
+typedef int cache_user_t; // Has to be int or else it messes with x64
 #endif
 
 // demand loaded sequence groups
