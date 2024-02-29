@@ -250,6 +250,10 @@ namespace FilterMapShaderNames
                     string angles = props.ContainsKey("angles") ? props["angles"] : null;
                     string pitch = props.ContainsKey("pitch") ? props["pitch"] : null;
                     string yaw = props.ContainsKey("angle") ? props["angle"] : null;
+
+                    double thisLightPitch = 0, thisLightYaw = 0, thisLightRoll = 0;
+                    bool thisLightPitchFound = false, thisLightYawFound = false, thisLightRollFound = false;
+
                     if (_light != null)
                     {
                         double[] _lightValues = SharedStuff.parseDoubleArray(_light);
@@ -280,15 +284,21 @@ namespace FilterMapShaderNames
                         {
                             if (angleValues.Length > 0)
                             {
-                                lightPitch.addSample(angleValues[0]);
+                                thisLightPitch = angleValues[0];
+                                thisLightPitchFound = true;
+                                //lightPitch.addSample(angleValues[0]);
                             }
                             if (angleValues.Length > 1)
                             {
-                                lightYaw.addSample(angleValues[1]);
+                                thisLightYaw = angleValues[0];
+                                thisLightYawFound = true;
+                                //lightYaw.addSample(angleValues[1]);
                             }
                             if (angleValues.Length > 2)
                             {
-                                lightRoll.addSample(angleValues[2]);
+                                thisLightRoll = angleValues[0];
+                                thisLightRollFound = true;
+                                //lightRoll.addSample(angleValues[2]);
                             }
                         }
                     }
@@ -297,7 +307,9 @@ namespace FilterMapShaderNames
                         double parsedValue = 0;
                         if (double.TryParse(pitch, out parsedValue))
                         {
-                            lightPitch.addSample(parsedValue);
+                            thisLightPitch = parsedValue;
+                            thisLightPitchFound = true;
+                            //lightPitch.addSample(parsedValue);
                         }
                     }
                     if (yaw != null)
@@ -305,8 +317,23 @@ namespace FilterMapShaderNames
                         double parsedValue = 0;
                         if (double.TryParse(yaw, out parsedValue))
                         {
-                            lightYaw.addSample(parsedValue);
+                            thisLightYaw = parsedValue;
+                            thisLightYawFound = true;
+                            //lightYaw.addSample(parsedValue);
                         }
+                    }
+
+                    if (thisLightPitchFound)
+                    {
+                        lightPitch.addSample(thisLightPitch);
+                    }
+                    if (thisLightYawFound)
+                    {
+                        lightYaw.addSample(thisLightYaw);
+                    }
+                    if (thisLightRollFound)
+                    {
+                        lightRoll.addSample(thisLightRoll);
                     }
                 }
 
@@ -325,7 +352,7 @@ namespace FilterMapShaderNames
             double lightRVal = lightR.getValueOrDefault(255)/255.0;
             double lightGVal = lightG.getValueOrDefault(255) / 255.0;
             double lightBVal = lightB.getValueOrDefault(255) / 255.0;
-            double lightIntensityVal = lightIntensity.getValueOrDefault(50)*2.0; // had it *2 but it was a bit too bright, maybe leave. but that was jka compile? hm
+            double lightIntensityVal = lightIntensity.getValueOrDefault(50); // had it *2 but it was a bit too bright, maybe leave. but that was jka compile? hm
             double lightPitchVal = lightPitch.getValueOrDefault();
             double lightYawVal = lightYaw.getValueOrDefault();
 
@@ -391,9 +418,42 @@ namespace FilterMapShaderNames
                 if (props.ContainsKey("Angles"))
                 {
                     // Make it lowercase cuz radiant is a bit of a dummy sometimes :)
+                    // Also, seems like we have to invert pitch possibly.
                     string anglesTmp = props["Angles"];
+                    double[] anglesParsed = SharedStuff.parseDoubleArray(anglesTmp);
+                    if(anglesParsed.Length == 3)
+                    {
+                        anglesTmp = (-anglesParsed[0]).ToString("#.000") + " " + anglesParsed[1].ToString("#.000") + " " + anglesParsed[2].ToString("#.000");
+                    }
                     props.Remove("Angles");
                     props["angles"] = anglesTmp;
+                    resave = true;
+                }
+                if (props.ContainsKey("pitch"))
+                {
+                    
+                    string angleTmp = props["pitch"];
+                    double pitchVal = 0;
+                    if (double.TryParse(angleTmp,out pitchVal))
+                    {
+                        angleTmp = (-pitchVal).ToString("#.000");
+                    }
+                    props.Remove("pitch");
+                    props["pitch"] = angleTmp;
+                    resave = true;
+                }
+                if (props.ContainsKey("yaw")) // Make lowercase
+                {
+                    string angleTmp = props["yaw"];
+                    props.Remove("yaw");
+                    props["yaw"] = angleTmp;
+                    resave = true;
+                }
+                if (props.ContainsKey("roll")) // Make lowercase
+                {
+                    string angleTmp = props["roll"];
+                    props.Remove("roll");
+                    props["roll"] = angleTmp;
                     resave = true;
                 }
                 if (props["classname"].Equals("env_sprite", StringComparison.InvariantCultureIgnoreCase) && props.ContainsKey("model"))

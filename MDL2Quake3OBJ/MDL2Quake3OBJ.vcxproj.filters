@@ -13,10 +13,51 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Header Files\mdlviewer_stuff">
+      <UniqueIdentifier>{8d61098c-58a1-4b58-a22d-7727bac4a4d8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\mdlviewer_stuff">
+      <UniqueIdentifier>{10818edc-fa8a-4a6d-8f67-2dd5b88ce650}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\mdlviewer_stuff\NewFilter1">
+      <UniqueIdentifier>{5a9ad5d9-803b-4a1f-926f-398c2ba63ebd}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="mdl2obj.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="mdlviewer_stuff\studio_utils.cpp">
+      <Filter>Source Files\mdlviewer_stuff</Filter>
+    </ClCompile>
+    <ClCompile Include="mdlviewer_stuff\mathlib.c">
+      <Filter>Source Files\mdlviewer_stuff</Filter>
+    </ClCompile>
+    <ClCompile Include="mdlviewer_stuff\studio_render.cpp">
+      <Filter>Source Files\mdlviewer_stuff</Filter>
+    </ClCompile>
+    <ClCompile Include="mdlviewer_stuff\ControlPanel.cpp">
+      <Filter>Source Files\mdlviewer_stuff</Filter>
+    </ClCompile>
+    <ClCompile Include="mdlviewer_stuff\ViewerSettings.cpp">
+      <Filter>Source Files\mdlviewer_stuff</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="mdlviewer_stuff\StudioModel.h">
+      <Filter>Header Files\mdlviewer_stuff</Filter>
+    </ClInclude>
+    <ClInclude Include="mdlviewer_stuff\mathlib.h">
+      <Filter>Header Files\mdlviewer_stuff</Filter>
+    </ClInclude>
+    <ClInclude Include="mdlviewer_stuff\studio.h">
+      <Filter>Header Files\mdlviewer_stuff</Filter>
+    </ClInclude>
+    <ClInclude Include="mdlviewer_stuff\ViewerSettings.h">
+      <Filter>Header Files\mdlviewer_stuff</Filter>
+    </ClInclude>
+    <ClInclude Include="mdlviewer_stuff\ControlPanel.h">
+      <Filter>Header Files\mdlviewer_stuff</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -11,9 +11,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sledge.Formats.Model", "ext
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sledge.Formats", "ext\sledge-formats\Sledge.Formats\Sledge.Formats.csproj", "{35FC85DE-CB53-4718-B242-ABC5D42F9D18}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MDL2Quake3OBJ_NET", "MDL2Quake3OBJ_NET\MDL2Quake3OBJ_NET.csproj", "{3214352A-DBAE-4490-87EA-71033D06863B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MDL2Quake3OBJ_NET", "MDL2Quake3OBJ_NET\MDL2Quake3OBJ_NET.csproj", "{3214352A-DBAE-4490-87EA-71033D06863B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WAD2Q3SharedStuff", "WAD2Q3SharedStuff\WAD2Q3SharedStuff.csproj", "{C082434C-5609-4B7F-84AA-0B06061749A9}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WAD2Q3SharedStuff", "WAD2Q3SharedStuff\WAD2Q3SharedStuff.csproj", "{C082434C-5609-4B7F-84AA-0B06061749A9}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MDL2Quake3OBJ", "MDL2Quake3OBJ\MDL2Quake3OBJ.vcxproj", "{253363CD-BE9E-4965-87B8-58AB9C1D02FB}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -97,6 +99,16 @@ Global
 		{C082434C-5609-4B7F-84AA-0B06061749A9}.Release|x64.Build.0 = Release|Any CPU
 		{C082434C-5609-4B7F-84AA-0B06061749A9}.Release|x86.ActiveCfg = Release|Any CPU
 		{C082434C-5609-4B7F-84AA-0B06061749A9}.Release|x86.Build.0 = Release|Any CPU
+		{253363CD-BE9E-4965-87B8-58AB9C1D02FB}.Debug|Any CPU.ActiveCfg = Debug|Win32
+		{253363CD-BE9E-4965-87B8-58AB9C1D02FB}.Debug|x64.ActiveCfg = Debug|x64
+		{253363CD-BE9E-4965-87B8-58AB9C1D02FB}.Debug|x64.Build.0 = Debug|x64
+		{253363CD-BE9E-4965-87B8-58AB9C1D02FB}.Debug|x86.ActiveCfg = Debug|Win32
+		{253363CD-BE9E-4965-87B8-58AB9C1D02FB}.Debug|x86.Build.0 = Debug|Win32
+		{253363CD-BE9E-4965-87B8-58AB9C1D02FB}.Release|Any CPU.ActiveCfg = Release|Win32
+		{253363CD-BE9E-4965-87B8-58AB9C1D02FB}.Release|x64.ActiveCfg = Release|x64
+		{253363CD-BE9E-4965-87B8-58AB9C1D02FB}.Release|x64.Build.0 = Release|x64
+		{253363CD-BE9E-4965-87B8-58AB9C1D02FB}.Release|x86.ActiveCfg = Release|Win32
+		{253363CD-BE9E-4965-87B8-58AB9C1D02FB}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
