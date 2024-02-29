@@ -594,7 +594,7 @@ inputs:
 	r_entorigin
 ================
 */
-void StudioModel::WriteModel( std::stringstream* ss)
+void StudioModel::WriteModel( std::stringstream* ss, std::stringstream* ssMtl)
 {
 	int i;
 
@@ -625,7 +625,7 @@ void StudioModel::WriteModel( std::stringstream* ss)
 	{
 		SetupModel( i );
 		if (g_viewerSettings.transparency > 0.0f)
-			WritePoints( ss);
+			WritePoints( ss,ssMtl);
 	}
 
 	// draw bones
@@ -783,7 +783,7 @@ void StudioModel::WriteModel( std::stringstream* ss)
 
 ================
 */
-void StudioModel::WritePoints( std::stringstream *ss)
+void StudioModel::WritePoints( std::stringstream *ss, std::stringstream* ssMtl)
 {
 	int					i, j;
 	mstudiomesh_t		*pmesh;
@@ -921,7 +921,7 @@ void StudioModel::WritePoints( std::stringstream *ss)
 
 					// FIX: put these in as integer coords, not floats
 					//glTexCoord2f(ptricmds[2]*s, ptricmds[3]*t);
-					(*ss) << "vt " << (ptricmds[2] * s) << " " << (ptricmds[3] * t) << "\n";
+					(*ss) << "vt " << ((float)ptricmds[2] * s) << " " << (1.0f-((float)ptricmds[3] * t)) << "\n";
 					
 					lv = g_pvlightvalues[ptricmds[1]];
 					//glColor4f( lv[0], lv[1], lv[2], g_viewerSettings.transparency);
@@ -937,10 +937,15 @@ void StudioModel::WritePoints( std::stringstream *ss)
 
 
 	int uvIndex = 1;
+	int oldTextureIndex = -1;
+	int mtlIndex = 0;
 	for (j = 0; j < m_pmodel->nummesh; j++) 
 	{
 		float s, t;
 		short		*ptricmds;
+
+
+		(*ss) << "g mesh_" << j << "\n";
 
 		pmesh = (mstudiomesh_t *)((byte *)m_pstudiohdr + m_pmodel->meshindex) + j;
 		ptricmds = (short *)((byte *)m_pstudiohdr + pmesh->triindex);
@@ -950,6 +955,16 @@ void StudioModel::WritePoints( std::stringstream *ss)
 
 		// WAS ALREADY COMMENTED BEFORE: glBindTexture( GL_TEXTURE_2D, ptexture[pskinref[pmesh->skinref]].index );
 		//glBindTexture( GL_TEXTURE_2D, pskinref[pmesh->skinref] + 3);
+
+		int textureIndex = ptexture[pskinref[pmesh->skinref]].index;
+		if (textureIndex != oldTextureIndex) {
+			//(*ss) << "usemtl material_" << textureIndex << "\n";
+			//(*ss) << "usemtl " << ptexture[pskinref[pmesh->skinref]].name << "\n";
+			(*ssMtl) << "newmtl $Material_" << mtlIndex << "\n";
+			(*ssMtl) << "map_Kd " << ptexture[pskinref[pmesh->skinref]].name << "\n\n";
+			(*ss) << "usemtl $Material_" << mtlIndex++ << "\n";
+		}
+		oldTextureIndex = textureIndex;
 
 		if ( false /*ptexture[pskinref[pmesh->skinref]].flags & STUDIO_NF_CHROME*/) // TA: We're saving to an .obj file. We don't need any chrome calculated stuff that's angle dependent anyway (?)
 		{
@@ -985,6 +1000,7 @@ void StudioModel::WritePoints( std::stringstream *ss)
 		{
 			bool triangleStrip = false;
 			int triangleFanCenter = 0;
+			int triangleFanCenterUV = 0;
 			int lastVert = 0;
 			int lastLastVert = 0;
 			int avIndex = 0;
@@ -1019,11 +1035,15 @@ void StudioModel::WritePoints( std::stringstream *ss)
 					//glVertex3f(av[0], av[1], av[2]);
 
 					if (!triangleStrip) {
+						// This is a triangle fan.
 						if (index == 0) {
-							triangleFanCenter = avIndex;
+							triangleFanCenter = avIndex; 
+							triangleFanCenterUV = uvIndex;
 						}
 						else if (index > 1) {
-							(*ss) << "f " << triangleFanCenter << "/" << (uvIndex -2) << " " << lastVert << "/" << (uvIndex -1) << " " << avIndex << "/" << uvIndex << "\n";
+
+							//(*ss) << "f " << triangleFanCenter << "/" << (uvIndex - 2) << " " << lastVert << "/" << (uvIndex - 1) << " " << avIndex << "/" << uvIndex << "\n";
+							(*ss) << "f "  << lastVert << "/" << (uvIndex - 1) << " " << triangleFanCenter << "/" << triangleFanCenterUV << " " << avIndex << "/" << uvIndex << "\n";
 						}
 
 						lastLastVert = lastVert;
@@ -1031,7 +1051,12 @@ void StudioModel::WritePoints( std::stringstream *ss)
 					}
 					else {
 						if (index > 1) {
-							(*ss) << "f " << lastLastVert << "/" << (uvIndex - 2) << " " << lastVert << "/" << (uvIndex - 1) << " " << avIndex << "/" << uvIndex << "\n";
+							if (index % 2) {
+								(*ss) << "f " << lastLastVert << "/" << (uvIndex - 2) << " " << lastVert << "/" << (uvIndex - 1) << " " << avIndex << "/" << uvIndex << "\n";
+							}
+							else {
+								(*ss) << "f " << lastVert << "/" << (uvIndex - 1) << " " << lastLastVert << "/" << (uvIndex - 2) << " " <<  avIndex << "/" << uvIndex << "\n";
+							}
 						}
 
 						lastLastVert = lastVert;

@@ -36,7 +36,7 @@ public:
 	studiohdr_t				*LoadModel( char *modelname );
 	bool					PostLoadModel ( char *modelname );
 	bool					SaveModel ( char *modelname );
-	void					WriteModel(std::stringstream* ss);
+	void					WriteModel(std::stringstream* ss, std::stringstream* ssMtl);
 	void					AdvanceFrame( float dt );
 	int						SetFrame (int nFrame);
 
@@ -85,7 +85,7 @@ private:
 	void					SlerpBones( vec4_t q1[], vec3_t pos1[], vec4_t q2[], vec3_t pos2[], float s );
 	void					SetUpBones ( void );
 
-	void					WritePoints(std::stringstream *ss);
+	void					WritePoints(std::stringstream *ss, std::stringstream* ssMtl);
 
 	void					Lighting (float *lv, int bone, int flags, vec3_t normal);
 	void					Chrome (int *chrome, int bone, vec3_t normal);
