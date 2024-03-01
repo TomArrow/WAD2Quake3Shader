@@ -9,7 +9,7 @@ using System.Collections.Generic;
 
 namespace FilterMapShaderNames
 {
-    // TODO Func_illusionary nonsolid shaders.
+
     class Program
     {
         static Regex findShader = new Regex(@"(?<vecs>(?:\((?:\s*[-\d\.]+){3}\s*\)\s*){3}\s*)(?<shaderName>.*?)\s*\[", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline);
@@ -544,9 +544,15 @@ namespace FilterMapShaderNames
                 }
                 else if (props["classname"].Equals("cycler_sprite", StringComparison.InvariantCultureIgnoreCase) && props.ContainsKey("model"))
                 {
-                    // TODO Make this model solid.
                     props["classname"] = "misc_model";
                     props["model"] = "models/mdlConvert/"+Path.GetFileName(Path.ChangeExtension(props["model"],".obj"));
+                    int originalSpawnFlags = 0;
+                    if (props.ContainsKey("spawnflags") && int.TryParse(props["spawnflags"], out originalSpawnFlags))
+                    {
+                        props["spawnflags_original"] = props["spawnflags"];
+                    }
+                   // props["spawnflags"] = "2"; // turns into a solid since cycler_sprite is solid :)
+                    props["spawnflags"] = "0"; // actually dont, it seems to make shit solid that shouldnt be (trees with big transparent boxes for the branches texture and shit)
                     resave = true;
                 }
                 else if (props.ContainsKey("model") && props["model"].EndsWith(".mdl",StringComparison.InvariantCultureIgnoreCase))
@@ -639,7 +645,7 @@ namespace FilterMapShaderNames
                     props["classname"] = "target_speaker";
                     props["noise"] = "sound/"+props["message"];
                     int originalSpawnFlags = 0;
-                    if(props.ContainsKey("message") && int.TryParse(props["spawnflags"],out originalSpawnFlags))
+                    if(props.ContainsKey("spawnflags") && int.TryParse(props["spawnflags"],out originalSpawnFlags))
                     {
                         props["spawnflags_original"] = props["spawnflags"];
                     }
