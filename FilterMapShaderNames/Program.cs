@@ -282,23 +282,36 @@ namespace FilterMapShaderNames
                         double[] angleValues = SharedStuff.parseDoubleArray(angles);
                         if (angleValues != null)
                         {
-                            if (angleValues.Length > 0)
+                            if(angleValues.Length == 1)
                             {
-                                thisLightPitch = angleValues[0];
-                                thisLightPitchFound = true;
-                                //lightPitch.addSample(angleValues[0]);
-                            }
-                            if (angleValues.Length > 1)
-                            {
-                                thisLightYaw = angleValues[0];
-                                thisLightYawFound = true;
-                                //lightYaw.addSample(angleValues[1]);
-                            }
-                            if (angleValues.Length > 2)
-                            {
-                                thisLightRoll = angleValues[0];
-                                thisLightRollFound = true;
-                                //lightRoll.addSample(angleValues[2]);
+                                if(angleValues[0] == -1)
+                                {
+                                    thisLightPitch = 90; // Should be -90 but i flip it around later anyway?
+                                    thisLightPitchFound = true;
+                                } else if(angleValues[0] == -1)
+                                {
+                                    thisLightPitch = -90; // Should be 90 but i flip it around later anyway?
+                                    thisLightPitchFound = true;
+                                }
+                            } else { 
+                                if (angleValues.Length > 0)
+                                {
+                                    thisLightPitch = angleValues[0];
+                                    thisLightPitchFound = true;
+                                    //lightPitch.addSample(angleValues[0]);
+                                }
+                                if (angleValues.Length > 1)
+                                {
+                                    thisLightYaw = angleValues[1];
+                                    thisLightYawFound = true;
+                                    //lightYaw.addSample(angleValues[1]);
+                                }
+                                if (angleValues.Length > 2)
+                                {
+                                    thisLightRoll = angleValues[2];
+                                    thisLightRollFound = true;
+                                    //lightRoll.addSample(angleValues[2]);
+                                }
                             }
                         }
                     }
@@ -353,8 +366,8 @@ namespace FilterMapShaderNames
             double lightGVal = lightG.getValueOrDefault(255) / 255.0;
             double lightBVal = lightB.getValueOrDefault(255) / 255.0;
             double lightIntensityVal = lightIntensity.getValueOrDefault(50); // had it *2 but it was a bit too bright, maybe leave. but that was jka compile? hm
-            double lightPitchVal = lightPitch.getValueOrDefault();
-            double lightYawVal = lightYaw.getValueOrDefault();
+            double lightPitchVal = lightPitch.getValueOrDefault(90);
+            double lightYawVal = lightYaw.getValueOrDefault(0);
 
 
             string simplifiedMapname = SharedStuff.fixUpShaderName(Path.GetFileNameWithoutExtension(mapFile));
@@ -376,8 +389,13 @@ namespace FilterMapShaderNames
             shaderFile.Append(lightBVal.ToString("0.###")); 
             shaderFile.Append(" "); 
             shaderFile.Append(lightIntensityVal.ToString("0.###")); 
-            shaderFile.Append(" "); 
-            shaderFile.Append(lightYawVal.ToString("0.###")); 
+            shaderFile.Append(" ");
+            double theAngle = lightYawVal - 180; // sunlight in q3 is defined as the direction ur looking to see the sun, not the direction the sun is pointing?
+            while (theAngle < -180) 
+            {
+                theAngle += 360;
+            }
+            shaderFile.Append((theAngle).ToString("0.###")); 
             shaderFile.Append(" "); 
             shaderFile.Append((-lightPitchVal).ToString("0.###")); 
             shaderFile.Append(" 5 32"); 
@@ -415,27 +433,18 @@ namespace FilterMapShaderNames
                 string propsString = entity.Groups["props"].Value;
                 string brushesString = entity.Groups["brushes"].Value;
                 EntityProperties props = EntityProperties.FromString(propsString);
-                if (props.ContainsKey("Angles"))
-                {
-                    // Make it lowercase cuz radiant is a bit of a dummy sometimes :)
-                    // Also, seems like we have to invert pitch possibly.
-                    string anglesTmp = props["Angles"];
-                    double[] anglesParsed = SharedStuff.parseDoubleArray(anglesTmp);
-                    if(anglesParsed.Length == 3)
-                    {
-                        anglesTmp = (-anglesParsed[0]).ToString("#.000") + " " + anglesParsed[1].ToString("#.000") + " " + anglesParsed[2].ToString("#.000");
-                    }
-                    props.Remove("Angles");
-                    props["angles"] = anglesTmp;
-                    resave = true;
-                }
+
+                double explicitPitch = 0;
+                double explicitYaw = 0;
+                double explicitRoll = 0;
                 if (props.ContainsKey("pitch"))
                 {
-                    
+
                     string angleTmp = props["pitch"];
                     double pitchVal = 0;
-                    if (double.TryParse(angleTmp,out pitchVal))
+                    if (double.TryParse(angleTmp, out pitchVal))
                     {
+                        explicitPitch = -pitchVal;
                         angleTmp = (-pitchVal).ToString("#.000");
                     }
                     props.Remove("pitch");
@@ -445,6 +454,10 @@ namespace FilterMapShaderNames
                 if (props.ContainsKey("yaw")) // Make lowercase
                 {
                     string angleTmp = props["yaw"];
+                    if (!double.TryParse(angleTmp, out explicitYaw))
+                    {
+                        explicitYaw = 0;
+                    }
                     props.Remove("yaw");
                     props["yaw"] = angleTmp;
                     resave = true;
@@ -452,8 +465,67 @@ namespace FilterMapShaderNames
                 if (props.ContainsKey("roll")) // Make lowercase
                 {
                     string angleTmp = props["roll"];
+                    if (!double.TryParse(angleTmp, out explicitRoll))
+                    {
+                        explicitRoll = 0;
+                    }
                     props.Remove("roll");
                     props["roll"] = angleTmp;
+                    resave = true;
+                }
+                if (props.ContainsKey("Angles"))
+                {
+                    // Make it lowercase cuz radiant is a bit of a dummy sometimes :)
+                    // Also, seems like we have to invert pitch possibly.
+                    string anglesTmp = props["Angles"];
+                    double[] anglesParsed = SharedStuff.parseDoubleArray(anglesTmp);
+                    if(anglesParsed.Length == 3) // Q3 doesn't have extra keys for this stuff.
+                    {
+                        anglesParsed[0] = -anglesParsed[0];
+                        if (explicitYaw != 0)
+                        {
+                            anglesParsed[1] = explicitYaw;
+                        }
+                        if (explicitPitch != 0)
+                        {
+                            anglesParsed[0] = explicitPitch;
+                        }
+                        if (explicitRoll != 0)
+                        {
+                            anglesParsed[2] = explicitRoll;
+                        }
+                        anglesTmp = (anglesParsed[0]).ToString("#.000") + " " + anglesParsed[1].ToString("#.000") + " " + anglesParsed[2].ToString("#.000");
+                    } else if (anglesParsed.Length == 1)
+                    {
+                        double parsedNumber = anglesParsed[0];
+                        anglesParsed = new double[3];
+                        if (parsedNumber == -1)
+                        {
+                            anglesParsed[0] = -90;
+                            anglesParsed[1] = 0;
+                            anglesParsed[2] = 0;
+                        } else if (parsedNumber == -2)
+                        {
+                            anglesParsed[0] = 90;
+                            anglesParsed[1] = 0;
+                            anglesParsed[2] = 0;
+                        }
+                        if (explicitYaw != 0)
+                        {
+                            anglesParsed[1] = explicitYaw;
+                        }
+                        if (explicitPitch != 0)
+                        {
+                            anglesParsed[0] = explicitPitch;
+                        }
+                        if (explicitRoll != 0)
+                        {
+                            anglesParsed[2] = explicitRoll;
+                        }
+                        anglesTmp = (anglesParsed[0]).ToString("#.000") + " " + anglesParsed[1].ToString("#.000") + " " + anglesParsed[2].ToString("#.000");
+                    }
+                    props.Remove("Angles");
+                    props["angles"] = anglesTmp;
                     resave = true;
                 }
                 if (props["classname"].Equals("env_sprite", StringComparison.InvariantCultureIgnoreCase) && props.ContainsKey("model"))
