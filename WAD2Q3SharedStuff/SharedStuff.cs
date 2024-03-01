@@ -12,7 +12,7 @@ using PCRE;
 
 namespace WAD2Q3SharedStuff
 {
-
+    // TODO Globaltexture when deformvertexes
     public class RenderProperties
     {
         public int rendermode = -1;

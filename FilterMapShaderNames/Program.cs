@@ -19,6 +19,10 @@ namespace FilterMapShaderNames
         static Regex faceEndNumbersParse = new Regex(@"(?<start>\[\s*([-\d\.\+E]+)\s+([-\d\.\+E]+)\s+([-\d\.\+E]+)\s+([-\d\.\+E]+)\s*\]\s*(?:[-\d\.\+E]+\s*){3})(?<extraValues>(?:[-\d\.\+E]+\s*){3})?", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         static string propsBrushMatcher = @"(?<props>\{(\s*""([^""]+)""[ \t]+""([^""]+)"")+)(?<brushes>(?:\s*\{(?:[^\{\}]++|(?:[\{\}](?!\s))++|(?R))*+(?<=\s)\})*\s+\})";
+        static string brushesMatcher = @"\s*(?<brush>(?:^|[\n\r])++\s*+(?<=(?:\s))\{(?:[^\{\}]++|(?:[\{\}](?!\s))++|(?R))*+(?<=\s)\})"; // Always prepend search subject with empty space or first brush may not be found
+
+        static Regex facePointsParseRegex = new Regex(@"(?:^|\n)\s*(?<coordinates>(?<coordvec>\((?<vectorPart>\s*[-\d\.]+){3}\s*\)\s*){3})", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
 
         const int detailFlag = 0x8000000;
 
@@ -426,6 +430,10 @@ namespace FilterMapShaderNames
                 return match.Groups["vecs"] + " wadConvert/" + SharedStuff.fixUpShaderName(shaderName) + " [";
             });
 
+            StringBuilder newEntities = new StringBuilder();
+
+            int ladderIndex = 0;
+
             //destText = entitiesParseRegex.Replace(destText,(Match entity)=> {
             destText = PcreRegex.Replace(destText, propsBrushMatcher,(entity)=> {
 
@@ -536,6 +544,7 @@ namespace FilterMapShaderNames
                 }
                 else if (props["classname"].Equals("cycler_sprite", StringComparison.InvariantCultureIgnoreCase) && props.ContainsKey("model"))
                 {
+                    // TODO Make this model solid.
                     props["classname"] = "misc_model";
                     props["model"] = "models/mdlConvert/"+Path.GetFileName(Path.ChangeExtension(props["model"],".obj"));
                     resave = true;
@@ -555,6 +564,66 @@ namespace FilterMapShaderNames
                 else if (props["classname"].Equals("func_water", StringComparison.InvariantCultureIgnoreCase))
                 {
                     props["classname"] = "func_group";
+                    brushesString = MakeFacesDetail(brushesString);
+                    resave = true;
+                }
+                else if (props["classname"].Equals("func_ladder", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    ladderIndex++;
+                    List<Side> completedSides = new List<Side>();
+                    props["classname"] = "trigger_push";
+                    var brushMatches = PcreRegex.Matches($" {brushesString}",brushesMatcher);
+                    foreach (var brushMatch in brushMatches)
+                    {
+                        List<Side> sides = new List<Side>();
+                        MatchCollection faceMatches = facePointsParseRegex.Matches(brushMatch.Groups["brush"].Value);
+                        foreach (Match faceMatch in faceMatches)
+                        {
+                            string coordinates = faceMatch.Groups["coordinates"].Value;
+                            Side side = new Side();
+                            side.points = SharedStuff.parseVector3Array(coordinates);
+                            sides.Add(side);
+                        }
+
+                        Solid brush = new Solid();
+                        brush.sides = sides.ToArray();
+
+                        foreach (Side side in sides)
+                        {
+                            completedSides.Add(Side.completeSide(side, brush));
+                        }
+                    }
+                    Vector3 centerPoint = new Vector3();
+                    float highestPoint = float.NegativeInfinity;
+                    int faceCount = 0;
+                    foreach (Side side in completedSides)
+                    {
+                        foreach (Vector3 point in side.points)
+                        {
+                            if(point.Z > highestPoint)
+                            {
+                                highestPoint = point.Z;
+                            }
+                            centerPoint += point;
+                            faceCount++;
+                        }
+                    }
+                    if(faceCount > 0)
+                    {
+                        centerPoint /= (float)faceCount;
+                        Vector3 destination = centerPoint;
+                        destination.Z = highestPoint + 64;
+                        EntityProperties targetProps = new EntityProperties();
+                        targetProps["classname"] = "target_position";
+                        targetProps["targetname"] = $"ladder{ladderIndex}";
+                        props["target"] = $"ladder{ladderIndex}";
+                        targetProps["origin"] = destination.X.ToString("#.000") + " " + destination.Y.ToString("#.000") + " " + destination.Z.ToString("#.000");
+
+                        newEntities.Append("\n{");
+                        newEntities.Append(targetProps.ToString());
+                        newEntities.Append("\n}");
+                    }
+
                     brushesString = MakeFacesDetail(brushesString);
                     resave = true;
                 }
@@ -593,6 +662,8 @@ namespace FilterMapShaderNames
                     return entity.Value;
                 }
             });
+
+            destText += newEntities.ToString();
 
             File.WriteAllText($"{mapFile}.filtered.map", destText);
         }
