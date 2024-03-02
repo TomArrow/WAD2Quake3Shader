@@ -1242,5 +1242,6 @@ namespace WAD2Q3SharedStuff
             return hexedString.ToString();
         }
 
+
     }
 }

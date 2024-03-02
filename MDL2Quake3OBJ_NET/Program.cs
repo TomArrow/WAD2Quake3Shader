@@ -21,10 +21,19 @@ namespace MDL2Quake3OBJ_NET
         static Regex mtlMaterialNamesRegex = new Regex(@"(?<start>(?:\n|^)\s*map_kd\s+)(?<texName>[^\s]+)", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.IgnoreCase);
         static int Main(string[] args)
         {
-            if (args == null || args.Length != 1)
+            if (args == null || args.Length == 0)
             {
                 Console.Error.WriteLine("MDL file required");
                 return 2;
+            }
+
+            bool recursive = false;
+            foreach (string arg in args)
+            {
+                if (arg.Equals("--recursive", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    recursive = true;
+                }
             }
 
             Dictionary<string, Vector4> radIntensities = SharedStuff.getRadIntensities("../");
@@ -33,6 +42,16 @@ namespace MDL2Quake3OBJ_NET
             {
                 ConvertMDL(args[0], radIntensities);
             }
+            else if (recursive) {
+                string[] possibleWads = SharedStuff.crawlDirectory(".");
+                foreach (string possibleWad in possibleWads)
+                {
+                    if (Path.GetExtension(possibleWad).Equals(".mdl",StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        ConvertMDL(possibleWad, radIntensities);
+                    }
+                }
+            } 
             else
             {
                 string[] wads = Directory.GetFiles(".", "*.mdl");
