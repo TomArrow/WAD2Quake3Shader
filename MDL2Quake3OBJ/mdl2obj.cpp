@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <fstream>
+#include <algorithm>
 #include "mdlviewer_stuff/ViewerSettings.h"
 
 // These are just so I don't get errors compiling, we're not rly drawing anything in this anyway
@@ -49,7 +50,16 @@ int main(int argc, char** argv) {
 	std::stringstream ss;
 	std::stringstream ssMtl;
 
-	ss << "mtllib "<< fileNameOutMtl <<"\n";
+	char* filenameOutMtlNoPath = fileNameOutMtl;
+	char* lastSlash = std::max(strrchr(fileNameOutMtl, '\\'), strrchr(fileNameOutMtl, '/'));
+	if (lastSlash) {
+		filenameOutMtlNoPath = lastSlash + 1;
+		if (*filenameOutMtlNoPath == 0) {
+			filenameOutMtlNoPath = fileNameOutMtl;
+		}
+	}
+
+	ss << "mtllib "<< filenameOutMtlNoPath <<"\n";
 
 	g_studioModel.WriteModel(&ss, &ssMtl);
 
