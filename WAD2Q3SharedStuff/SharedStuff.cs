@@ -102,8 +102,27 @@ namespace WAD2Q3SharedStuff
         Fullbright = (1 << 15),
         Chrome = (1 << 16),
         TrueAlphaTransparency = (1 << 17),
+        AutoSprite = (1 << 18),
+        AutoSprite2 = (1 << 19),
+        FixedSprite = (1 << 20),
     }
 
+
+    public enum SpriteTexFormat
+    {
+        Normal,
+        Additive,
+        IndexAlpha,
+        AlphaTest
+    }
+    public enum SpriteType
+    {
+        ParallelUpright,
+        FacingUpright,
+        Parallel,
+        Oriented,
+        ParallelOriented
+    }
 
     public static class SharedStuff
     {
@@ -373,13 +392,14 @@ namespace WAD2Q3SharedStuff
         }
 
         // TODO For any shader that gets deformvertexes, make a version without it. It's not always desirable (3d blocks of water streaming down for example).
-        public static (bool, string) MakeShader(TextureType type, string shaderName, string mapString, bool resized, Vector4? radIntensity, RenderProperties renderProperties = null, string shaderMainNameOverride = null, bool cullTransparent = true)
+        public static (bool, string) MakeShader(TextureType type, string shaderName, string mapString, bool resized, Vector4? radIntensity, RenderProperties renderProperties = null, string shaderMainNameOverride = null, bool cullTransparent = true, string startInsert = "")
         {
             StringBuilder shaderString = new StringBuilder();
             bool shaderWritten = false;
             if (renderProperties != null || (type & TextureType.WaterFluid) > 0 || (type & TextureType.Transparent) > 0 || (type & TextureType.DecalDarken) > 0 || (type & TextureType.DecalBrighten) > 0 
                 || (type & TextureType.LightEmitting) > 0 || (type & TextureType.Scroll) > 0 || (type & TextureType.Toggling) > 0 || (type & TextureType.Lava) > 0 || (type & TextureType.Slime) > 0
-                || (type & TextureType.PseudoWater) > 0   || (type & TextureType.PseudoLava) > 0   || (type & TextureType.PseudoSlime) > 0   || (type & TextureType.Additive) > 0   || (type & TextureType.Fullbright) > 0  || (type & TextureType.Chrome) > 0)
+                || (type & TextureType.PseudoWater) > 0   || (type & TextureType.PseudoLava) > 0   || (type & TextureType.PseudoSlime) > 0   || (type & TextureType.Additive) > 0   || (type & TextureType.Fullbright) > 0  || (type & TextureType.Chrome) > 0
+                || (type & TextureType.TrueAlphaTransparency) > 0|| (type & TextureType.AutoSprite) > 0|| (type & TextureType.AutoSprite2) > 0|| (type & TextureType.FixedSprite) > 0)
             {
                 shaderWritten = true;
 
@@ -431,6 +451,12 @@ namespace WAD2Q3SharedStuff
                 {
                     shaderString.Append($"\n{shaderName}\n{{");
                 }
+
+                if (!string.IsNullOrWhiteSpace(startInsert))
+                {
+                    shaderString.Append($"\n\t{startInsert}");
+                }
+
                 if (resized)
                 {
                     shaderString.Append($"\n\tqer_editorimage {shaderName}_npot");
@@ -439,6 +465,7 @@ namespace WAD2Q3SharedStuff
                 {
                     shaderString.Append($"\n\tqer_editorimage {shaderName}");
                 }
+
 
                 if ((type & TextureType.Additive) > 0 ||(type & TextureType.DecalBrighten) > 0 || (type & TextureType.DecalDarken) > 0 || (type & TextureType.LightEmitting) > 0 || (type & TextureType.Fullbright) > 0 || (type & TextureType.Lava) > 0)
                 {
@@ -590,9 +617,17 @@ namespace WAD2Q3SharedStuff
                         hasLightMapStage = false;
                     }
                 }
-                if ((type & TextureType.DecalDarken) > 0 || (type & TextureType.DecalBrighten) > 0)
+                if ((type & TextureType.DecalDarken) > 0 || (type & TextureType.DecalBrighten) > 0 || (type & TextureType.FixedSprite) > 0)
                 {
                     shaderString.Append($"\n\tpolygonOffset");
+                }
+                if ((type & TextureType.AutoSprite) > 0)
+                {
+                    shaderString.Append($"\n\tdeformVertexes autosprite");
+                }
+                if ((type & TextureType.AutoSprite2) > 0)
+                {
+                    shaderString.Append($"\n\tdeformVertexes autosprite2");
                 }
                 if ((type & TextureType.DecalDarken) > 0 || (type & TextureType.DecalBrighten) > 0 || (type & TextureType.Additive) > 0)
                 {
@@ -777,7 +812,7 @@ namespace WAD2Q3SharedStuff
 
 
 
-        public static ByteImage GoldSrcImgToByteImage(int width, int height, byte[] mip0PaletteOffsets, byte[] palette, bool transparency, bool font)
+        public static ByteImage GoldSrcImgToByteImage(int width, int height, byte[] mip0PaletteOffsets, byte[] palette, bool transparency, bool font, bool isIndexAlpha = false)
         {
             Bitmap imageBmp = new Bitmap(width, height, PixelFormat.Format32bppArgb);
             ByteImage image = Helpers.BitmapToByteArray(imageBmp);
@@ -794,43 +829,75 @@ namespace WAD2Q3SharedStuff
 
             bool transparentPixelsFound = false;
 
-            for (int y = 0; y < height; y++)
+            if (isIndexAlpha)
             {
-                for (int x = 0; x < width; x++)
+                byte[] lastIndexColor = new byte[3];
+                lastIndexColor[0] = palette[palette.Length - 3];
+                lastIndexColor[1] = palette[palette.Length - 2];
+                lastIndexColor[2] = palette[palette.Length - 1];
+
+                for (int y = 0; y < height; y++)
                 {
-                    int paletteOffset = mip0PaletteOffsets[y * width + x];
-                    if (palette != null)
+                    for (int x = 0; x < width; x++)
                     {
-                        image.imageData[image.stride * y + x * 4 + 2] = palette[paletteOffset * 3];
-                        image.imageData[image.stride * y + x * 4 + 1] = palette[paletteOffset * 3 + 1];
-                        image.imageData[image.stride * y + x * 4] = palette[paletteOffset * 3 + 2];
-                    }
-                    else
-                    {
-                        image.imageData[image.stride * y + x * 4] = (byte)paletteOffset;
-                        image.imageData[image.stride * y + x * 4 + 1] = (byte)paletteOffset;
-                        image.imageData[image.stride * y + x * 4 + 2] = (byte)paletteOffset;
-                    }
-                    image.imageData[image.stride * y + x * 4 + 3] = (transparency && paletteOffset == 255) ? (byte)0 : (byte)255;
-                    if (font && paletteOffset == 0)
-                    {
-                        // Special font thing? Is this correct? idk
-                        image.imageData[image.stride * y + x * 4 + 3] = 0;
-                        transparentPixelsFound = true;
-                    }
-                    if (paletteOffset == 255)
-                    {
-                        transparentPixelsFound = true;
-                    }
-                    if(image.imageData[image.stride * y + x * 4 + 3] == 0)
-                    {
-                        // Null out transparent pixels to avoid ugly seams caused by... idk really. Mipmaps?
-                        image.imageData[image.stride * y + x * 4] = 0;
-                        image.imageData[image.stride * y + x * 4 + 1] = 0;
-                        image.imageData[image.stride * y + x * 4 + 2] = 0;
+                        int paletteOffset = mip0PaletteOffsets[y * width + x];
+
+                        image.imageData[image.stride * y + x * 4 + 2] = lastIndexColor[0];
+                        image.imageData[image.stride * y + x * 4 + 1] = lastIndexColor[1];
+                        image.imageData[image.stride * y + x * 4] = lastIndexColor[2];
+
+                        image.imageData[image.stride * y + x * 4 + 3] = (byte)paletteOffset;
+                        //if (image.imageData[image.stride * y + x * 4 + 3] == 0)
+                        //{
+                        //    // Null out transparent pixels to avoid ugly seams caused by... idk really. Mipmaps?
+                        //    image.imageData[image.stride * y + x * 4] = 0;
+                        //    image.imageData[image.stride * y + x * 4 + 1] = 0;
+                        //    image.imageData[image.stride * y + x * 4 + 2] = 0;
+                        //}
                     }
                 }
             }
+            else
+            {
+                for (int y = 0; y < height; y++)
+                {
+                    for (int x = 0; x < width; x++)
+                    {
+                        int paletteOffset = mip0PaletteOffsets[y * width + x];
+                        if (palette != null)
+                        {
+                            image.imageData[image.stride * y + x * 4 + 2] = palette[paletteOffset * 3];
+                            image.imageData[image.stride * y + x * 4 + 1] = palette[paletteOffset * 3 + 1];
+                            image.imageData[image.stride * y + x * 4] = palette[paletteOffset * 3 + 2];
+                        }
+                        else
+                        {
+                            image.imageData[image.stride * y + x * 4] = (byte)paletteOffset;
+                            image.imageData[image.stride * y + x * 4 + 1] = (byte)paletteOffset;
+                            image.imageData[image.stride * y + x * 4 + 2] = (byte)paletteOffset;
+                        }
+                        image.imageData[image.stride * y + x * 4 + 3] = (transparency && paletteOffset == 255) ? (byte)0 : (byte)255;
+                        if (font && paletteOffset == 0)
+                        {
+                            // Special font thing? Is this correct? idk
+                            image.imageData[image.stride * y + x * 4 + 3] = 0;
+                            transparentPixelsFound = true;
+                        }
+                        if (paletteOffset == 255)
+                        {
+                            transparentPixelsFound = true;
+                        }
+                        if (image.imageData[image.stride * y + x * 4 + 3] == 0)
+                        {
+                            // Null out transparent pixels to avoid ugly seams caused by... idk really. Mipmaps?
+                            image.imageData[image.stride * y + x * 4] = 0;
+                            image.imageData[image.stride * y + x * 4 + 1] = 0;
+                            image.imageData[image.stride * y + x * 4 + 2] = 0;
+                        }
+                    }
+                }
+            }
+            
 
             return image;
         }
@@ -839,6 +906,45 @@ namespace WAD2Q3SharedStuff
         static Regex pseudoSlimeRegex = new Regex(@"^s+l+i+m+e+", RegexOptions.IgnoreCase | RegexOptions.Compiled);
         static Regex pseudoWaterRegex = new Regex(@"^w+a+t+e+r+", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+
+        public static TextureType TextureTypeFromSpriteProperties(SpriteTexFormat textureFormat, SpriteType spriteType)
+        {
+            TextureType type = 0;
+            if (textureFormat == SpriteTexFormat.AlphaTest)
+            {
+                type |= TextureType.Transparent;
+            }
+            else if (textureFormat == SpriteTexFormat.Additive)
+            {
+                // We could add additive but apparently this is determined by the env_sprite entity anyway, so best to keep the default without it?
+            }
+            else if (textureFormat == SpriteTexFormat.IndexAlpha)
+            {
+                type |= TextureType.TrueAlphaTransparency;
+                //isIndexAlpha = true;
+            }
+
+            bool mustBeHigherThanWide = false;
+
+            if (spriteType == SpriteType.Parallel || spriteType == SpriteType.ParallelOriented)
+            {
+                type |= TextureType.AutoSprite;
+                if (spriteType == SpriteType.ParallelOriented)
+                {
+                    type |= TextureType.FixedSprite;
+                }
+            }
+            else if (spriteType == SpriteType.ParallelUpright || spriteType == SpriteType.FacingUpright)
+            {
+                type |= TextureType.AutoSprite2;
+                //mustBeHigherThanWide = true;
+            }
+            else if (spriteType == SpriteType.Oriented)
+            {
+                type |= TextureType.FixedSprite;
+            }
+            return type;
+        }
 
         public static (TextureType,int) TextureTypeFromTextureName(string textureName)
         {
