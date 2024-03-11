@@ -342,7 +342,7 @@ namespace SPR2Quake3Shader
                         imageBmp.Dispose();
                     }
 
-                    Console.WriteLine("test");
+                    //Console.WriteLine("test");
 
                     index++;
                 }

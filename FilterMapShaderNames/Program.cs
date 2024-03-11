@@ -778,6 +778,7 @@ namespace FilterMapShaderNames
                             type |= TextureType.Nonsolid; // Sprites should always be nonsolid, pretty sure. If not we'll go back and fix idk.
 
                             string replacementShaderName = $"{texturePath}_r{renderPropsHash}";
+                            shaderToUse = replacementShaderName;
                             bool neededResize = false;
                             if (shaderNeedsResizing.ContainsKey(texturePath))
                             {
@@ -792,6 +793,11 @@ namespace FilterMapShaderNames
                             specializedShaders[replacementShaderName] = shaderString;
                         }
 
+
+                        if (shaderToUse.StartsWith("textures/"))
+                        {
+                            shaderToUse = shaderToUse.Substring("textures/".Length);
+                        }
 
 
 
@@ -924,7 +930,7 @@ namespace FilterMapShaderNames
                         spritePatches.Append("\n\t}");
                         spritePatches.Append("\n}");
 
-                        Console.WriteLine("test");
+                        //Console.WriteLine("test");
 
                     } else
                     {
