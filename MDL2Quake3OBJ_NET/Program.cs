@@ -40,7 +40,7 @@ namespace MDL2Quake3OBJ_NET
 
             if (args[0] != "*")
             {
-                ConvertMDL(args[0], radIntensities);
+                ConvertMDL(args[0], ".", radIntensities);
             }
             else if (recursive) {
                 string[] possibleWads = SharedStuff.crawlDirectory(".");
@@ -48,7 +48,7 @@ namespace MDL2Quake3OBJ_NET
                 {
                     if (Path.GetExtension(possibleWad).Equals(".mdl",StringComparison.InvariantCultureIgnoreCase))
                     {
-                        ConvertMDL(possibleWad, radIntensities);
+                        ConvertMDL(possibleWad, ".", radIntensities);
                     }
                 }
             } 
@@ -57,16 +57,22 @@ namespace MDL2Quake3OBJ_NET
                 string[] wads = Directory.GetFiles(".", "*.mdl");
                 foreach (string wad in wads)
                 {
-                    ConvertMDL(wad, radIntensities);
+                    ConvertMDL(wad, ".", radIntensities);
                 }
             }
 
             return 0;
         }
 
-        public static void ConvertMDL(string filename, Dictionary<string, Vector4> radIntensities)
+        public static void ConvertMDL(string filename, string startPath, Dictionary<string, Vector4> radIntensities)
         {
 
+            string relativePath = Path.GetRelativePath(startPath, filename);
+            string relativePathWithoutExtension = Path.Combine(Path.GetDirectoryName(relativePath), Path.GetFileNameWithoutExtension(filename)).Replace('\\', '/');
+            if (relativePathWithoutExtension.StartsWith("./"))
+            {
+                relativePathWithoutExtension = relativePathWithoutExtension.Substring(2);
+            }
 
             string filePathFull = Path.GetFullPath(filename);
             MdlFile mdl = MdlFile.FromFile(filePathFull, true); // Need full path here because idk, Sledge is WEIRD and throwing random access exceptions for no fucking reason
@@ -78,9 +84,13 @@ namespace MDL2Quake3OBJ_NET
             string thisFilename = Path.GetFileName(filename);
             string thisFilename_NoExt = Path.GetFileNameWithoutExtension(filename);
 
-            string filePathOutputRelative = Path.Combine("models/mdlConvert",Path.ChangeExtension(Path.GetFileName(filename),".obj"));
+            //string filePathOutputRelative = Path.Combine("models/mdlConvert",Path.ChangeExtension(Path.GetFileName(filename),".obj"));
+            string filePathOutputRelative = Path.Combine("models/mdlConvert",SharedStuff.fixUpShaderName($"{relativePathWithoutExtension}")).Replace('\\', '/')+ ".obj";
             string filePathOutputFull = Path.GetFullPath(filePathOutputRelative);
-            string mtlPath = Path.Combine("models/mdlConvert",Path.ChangeExtension(thisFilename, ".mtl"));
+            //string mtlPath = Path.Combine("models/mdlConvert",Path.ChangeExtension(thisFilename, ".mtl"));
+            string mtlPath = Path.Combine("models/mdlConvert", SharedStuff.fixUpShaderName($"{relativePathWithoutExtension}")).Replace('\\', '/')+".mtl";
+
+            Directory.CreateDirectory(Path.GetDirectoryName(filePathOutputRelative));
 
             bool conversionSuccess = false;
 
@@ -213,7 +223,9 @@ namespace MDL2Quake3OBJ_NET
                 Bitmap imageBmp = Helpers.ByteArrayToBitmap(image);
                 //imageBmp.Save($"{textureName}.tga");
 
-                string texturePath = SharedStuff.fixUpShaderName($"models/mdlConvert/{textureName}");
+
+               // string texturePath = SharedStuff.fixUpShaderName($"models/mdlConvert/{textureName}");
+                string texturePath = $"models/mdlConvert/" + SharedStuff.fixUpShaderName(Path.Combine(Path.GetDirectoryName(relativePath) , $"{textureName}").Replace('\\','/'));
 
 
                 (bool onlyPOT, string shaderText) = SharedStuff.MakeShader(type, texturePath, $"map {texturePath}", resizedImage != null, thisShaderLightIntensity); // For models we cull transparent textures by default
@@ -233,7 +245,8 @@ namespace MDL2Quake3OBJ_NET
 
 
                 TGA myTGA = new TGA(imageBmp);
-                Directory.CreateDirectory("models/mdlConvert");
+                //Directory.CreateDirectory("models/mdlConvert");
+                Directory.CreateDirectory(Path.GetDirectoryName(texturePath));
                 string suffix = resizedIsMain ? "_npot" : "";
                 //if (type == TextureType.RandomTiling && textureName.Length > 1 && textureName[1] == '0')
                 //{

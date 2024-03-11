@@ -579,6 +579,12 @@ namespace WAD2Q3SharedStuff
                     //lightStageProps.blendFunc = $"\n\t\tblendFunc filter";
 
                 }
+                
+                if ((type & TextureType.FixedSprite) > 0)
+                {
+                    shaderString.Append($"\n\tcull none");
+                }
+
                 if ((type & TextureType.Transparent) > 0)
                 {
                     shaderString.Append($"\n\tsurfaceparm alphashadow");

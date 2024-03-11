@@ -211,7 +211,7 @@ namespace FilterMapShaderNames
                     shaderMapStrings[shaderName] = shaderMapString;
                 }
 
-                if (shaderName.EndsWith(":q3map"))
+                if (shaderName.EndsWith(":q3map", StringComparison.InvariantCultureIgnoreCase))
                 {
                     shaderName = shaderName.Substring(0, shaderName.Length -":q3map".Length);
                 }
@@ -219,7 +219,7 @@ namespace FilterMapShaderNames
                 {
                     // Check the editorimage.
                     Match editorImageMatch = shaderImageRegex.Match(shader.Value);
-                    if (editorImageMatch.Success && editorImageMatch.Groups["image"].Value.EndsWith("_npot"))
+                    if (editorImageMatch.Success && editorImageMatch.Groups["image"].Value.EndsWith("_npot", StringComparison.InvariantCultureIgnoreCase))
                     {
                         shaderNeedsResizing[shaderName] = true;
                     } else
@@ -662,7 +662,20 @@ namespace FilterMapShaderNames
                     //props["model"] = "models/mdlConvert/" + Path.GetFileName(Path.ChangeExtension(props["model"], ".obj"));
                     //resave = true;
                     props["classname"] = "misc_model";
-                    props["model"] = "models/mdlConvert/" + Path.GetFileName(Path.ChangeExtension(props["model"], ".obj"));
+                    //props["model"] = "models/mdlConvert/" + Path.GetFileName(Path.ChangeExtension(props["model"], ".obj"));
+                    string modelPath = Path.GetDirectoryName(props["model"]);
+                    if (modelPath.StartsWith("models",StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        if (modelPath.Length >= "models/".Length)
+                        {
+                            modelPath = modelPath.Substring("models/".Length);
+                        } else
+                        {
+                            modelPath = "";
+                        }
+                    }
+                    string convertedModelPath = "models/mdlConvert/" + SharedStuff.fixUpShaderName(Path.Combine(modelPath, Path.GetFileNameWithoutExtension(props["model"])).Replace('\\', '/'))+".obj";
+                    props["model"] = convertedModelPath;
                     int originalSpawnFlags = 0;
                     if (props.ContainsKey("spawnflags") && int.TryParse(props["spawnflags"], out originalSpawnFlags))
                     {
@@ -674,7 +687,7 @@ namespace FilterMapShaderNames
                 } else if (props.ContainsKey("model") && props["model"].EndsWith(".spr", StringComparison.InvariantCultureIgnoreCase))
                 {
                     string relativePath = props["model"];
-                    if (!relativePath.StartsWith("sprites"))
+                    if (!relativePath.StartsWith("sprites", StringComparison.InvariantCultureIgnoreCase))
                     {
                         Console.WriteLine($"{relativePath} doesn't start with sprites/ wtf");
                     } else
@@ -794,7 +807,7 @@ namespace FilterMapShaderNames
                         }
 
 
-                        if (shaderToUse.StartsWith("textures/"))
+                        if (shaderToUse.StartsWith("textures/", StringComparison.InvariantCultureIgnoreCase))
                         {
                             shaderToUse = shaderToUse.Substring("textures/".Length);
                         }
