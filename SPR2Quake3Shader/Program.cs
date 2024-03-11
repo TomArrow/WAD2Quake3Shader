@@ -54,7 +54,7 @@ namespace SPR2Quake3Shader
 
             if (args[0] != "*")
             {
-                ConvertSPR(args[0], radIntensities);
+                ConvertSPR(args[0], ".", radIntensities);
             }
             else if (recursive)
             {
@@ -63,7 +63,7 @@ namespace SPR2Quake3Shader
                 {
                     if (Path.GetExtension(possibleWad).Equals(".spr", StringComparison.InvariantCultureIgnoreCase))
                     {
-                        ConvertSPR(possibleWad, radIntensities);
+                        ConvertSPR(possibleWad, ".", radIntensities);
                     }
                 }
             }
@@ -72,15 +72,22 @@ namespace SPR2Quake3Shader
                 string[] wads = Directory.GetFiles(".", "*.spr");
                 foreach (string wad in wads)
                 {
-                    ConvertSPR(wad, radIntensities);
+                    ConvertSPR(wad, ".", radIntensities);
                 }
             }
 
             return 0;
         }
 
-        static void ConvertSPR(string sprPath, Dictionary<string, Vector4> radIntensities)
+        static void ConvertSPR(string sprPath, string startPath, Dictionary<string, Vector4> radIntensities)
         {
+
+            string relativePath = Path.GetRelativePath(startPath, sprPath);
+            string relativePathWithoutExtension = Path.Combine(Path.GetDirectoryName(relativePath),Path.GetFileNameWithoutExtension(sprPath)).Replace('\\','/');
+            if (relativePathWithoutExtension.StartsWith("./"))
+            {
+                relativePathWithoutExtension = relativePathWithoutExtension.Substring(2);
+            }
 
             byte[] byteData = File.ReadAllBytes(sprPath);
 
@@ -304,16 +311,19 @@ namespace SPR2Quake3Shader
                     }
 
 
-                    string textureName = Path.GetFileNameWithoutExtension(sprPath) + $"_{index}";
+                    //string textureName = Path.GetFileNameWithoutExtension(sprPath) + $"_{index}";
+                    string textureName = relativePathWithoutExtension + (frameImages.Count > 1 ?  $"_{index}" : "");
                     textureName = SharedStuff.fixUpShaderName(textureName);
-                    animMapString.Append($" {textureName}");
 
-                    string texturePath = SharedStuff.fixUpShaderName($"textures/sprConvert/{textureName}");
+                    string texturePath = $"textures/sprConvert/{textureName}";
                     Bitmap imageBmp = Helpers.ByteArrayToBitmap(img);
                     //imageBmp.Save($"{textureName}.tga");
 
+                    animMapString.Append($" {texturePath}");
+
                     TGA myTGA = new TGA(imageBmp);
                     Directory.CreateDirectory("textures/sprConvert");
+                    Directory.CreateDirectory(Path.GetDirectoryName(texturePath));
                     string suffix = resizedIsMain ? "_npot" : "";
                     myTGA.Save($"{texturePath}{suffix}.tga");
                     imageBmp.Dispose();
@@ -341,7 +351,7 @@ namespace SPR2Quake3Shader
 
                 string shaderComment = $"//sprite:type:{(int)spriteType}:texFormat:{(int)textureFormat}:width:{maxWidth}:height:{maxHeight}";
 
-                (bool onlyPOT, string shaderText)  = SharedStuff.MakeShader(type, shaderName, animMapString.ToString(), needResize, thisShaderLightIntensity,null,null,true, shaderComment);
+                (bool onlyPOT, string shaderText)  = SharedStuff.MakeShader(type,$"textures/sprConvert/{SharedStuff.fixUpShaderName(relativePathWithoutExtension)}", frameImages.Count > 1 ? animMapString.ToString() :$"map textures/sprConvert/{SharedStuff.fixUpShaderName(relativePathWithoutExtension)}", needResize, thisShaderLightIntensity,null,null,true, shaderComment);
                 
                 if (shaderText != null)
                 {

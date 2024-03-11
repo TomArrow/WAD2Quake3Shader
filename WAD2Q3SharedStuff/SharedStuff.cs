@@ -1048,6 +1048,7 @@ namespace WAD2Q3SharedStuff
             return (type,specialMatchCount);
         }
 
+        //static Regex badShaderNameChar = new Regex(@"[^-_\w\d:\\\/]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         static Regex badShaderNameChar = new Regex(@"[^-_\w\d:\\\/]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         public static string fixUpShaderName(string shaderName)
         {
@@ -1348,6 +1349,58 @@ namespace WAD2Q3SharedStuff
             return hexedString.ToString();
         }
 
+
+        static Regex spriteInfoRegex = new Regex(@"\/\/sprite:(?<spriteInfo>[^\n]+)", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
+        public static Dictionary<string,string> GetSpriteInfo(string shader)
+        {
+            Match match = null;
+            if(!(match = spriteInfoRegex.Match(shader)).Success)
+            {
+                return null;
+            }
+
+            string spriteInfo = match.Groups["spriteInfo"].Value;
+            string[] spriteInfoArr = spriteInfo.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            Dictionary<string, string> retVal = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
+            for (int i = 0; i < spriteInfoArr.Length - 1; i+=2)
+            {
+                retVal[spriteInfoArr[i]] = spriteInfoArr[i + 1];
+            }
+            return retVal.Count > 0 ? retVal : null;
+        }
+
+
+        public static void AngleVectors(Vector3 angles, out Vector3 forward, out Vector3 right, out Vector3 up)
+        {
+            float angle;
+            float sr, sp, sy, cr, cp, cy;
+
+            angle = angles.Y * ((float)Math.PI * 2f / 360f);
+            sy = (float)Math.Sin(angle);
+            cy = (float)Math.Cos(angle);
+            angle = angles.X * ((float)Math.PI * 2f / 360f);
+            sp = (float)Math.Sin(angle);
+            cp = (float)Math.Cos(angle);
+            angle = angles.Z * ((float)Math.PI * 2f / 360f);
+            sr = (float)Math.Sin(angle);
+            cr = (float)Math.Cos(angle);
+
+            forward.X = cp * cy;
+            forward.Y = cp * sy;
+            forward.Z = -sp;
+            right.X = (-1 * sr * sp * cy + -1 * cr * -sy);
+            right.Y = (-1 * sr * sp * sy + -1 * cr * cy);
+            right.Z = -1 * sr * cp;
+            up.X = (cr * sp * cy + -sr * -sy);
+            up.Y = (cr * sp * sy + -sr * cy);
+            up.Z = cr * cp;
+        }
+
+        //public void GoldSrcAngleVectors(Vector3 angles, ref Vector3 forward, ref Vector3 right, ref Vector3 up)
+        //{
+        //    float sr, sp, sy, cr, cp, cy;
+
+        //}
 
     }
 }
