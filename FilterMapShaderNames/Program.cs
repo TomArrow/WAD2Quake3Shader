@@ -15,6 +15,7 @@ namespace FilterMapShaderNames
         public SpriteType type = SpriteType.Oriented;
         public int width = 0;
         public int height = 0;
+        public string spriteMap = "";
         public SpriteInfo(Dictionary<string,string> intoToParse)
         {
             //string shaderComment = $"//sprite:type:{(int)spriteType}:texFormat:{(int)textureFormat}:width:{maxWidth}:height:{maxHeight}";
@@ -47,6 +48,10 @@ namespace FilterMapShaderNames
                 {
                     this.type = (SpriteType)tmp;
                 }
+            }
+            if (intoToParse.ContainsKey("spriteMap"))
+            {
+                spriteMap = intoToParse["spriteMap"].Trim();
             }
         }
     }
@@ -116,7 +121,6 @@ namespace FilterMapShaderNames
 
             Dictionary<string, ShaderDupe> shaderDuplicates = new Dictionary<string, ShaderDupe>(StringComparer.InvariantCultureIgnoreCase);
             Dictionary<string, string> parsedShaders = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
-            Dictionary<string, string> parsedExcludeShaders = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
 
             foreach (string shaderDirectory in shaderDirectories)
             {
@@ -196,9 +200,17 @@ namespace FilterMapShaderNames
 
             Dictionary<string,bool> shaderNeedsResizing = new Dictionary<string, bool>(StringComparer.InvariantCultureIgnoreCase);
             Dictionary<string,SpriteInfo> shaderSpriteInfo = new Dictionary<string, SpriteInfo>(StringComparer.InvariantCultureIgnoreCase);
+            Dictionary<string,string> shaderMapStrings = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
             foreach (var shader in parsedShaders)
             {
                 string shaderName = shader.Key;
+
+                string shaderMapString = SharedStuff.GetShaderMapString(shader.Value);
+                if (!string.IsNullOrWhiteSpace(shaderMapString))
+                {
+                    shaderMapStrings[shaderName] = shaderMapString;
+                }
+
                 if (shaderName.EndsWith(":q3map"))
                 {
                     shaderName = shaderName.Substring(0, shaderName.Length -":q3map".Length);
@@ -232,12 +244,12 @@ namespace FilterMapShaderNames
 
             foreach (string mapFile in mapFiles)
             {
-                ProcessMap(mapFile, parsedShaders, shaderNeedsResizing, shaderSpriteInfo);
+                ProcessMap(mapFile, parsedShaders, shaderNeedsResizing, shaderSpriteInfo, shaderMapStrings);
             }
 
         }
 
-        static void ProcessMap(string mapFile, Dictionary<string, string> parsedShaders, Dictionary<string, bool> shaderNeedsResizing, Dictionary<string, SpriteInfo> shaderSpriteInfo) { 
+        static void ProcessMap(string mapFile, Dictionary<string, string> parsedShaders, Dictionary<string, bool> shaderNeedsResizing, Dictionary<string, SpriteInfo> shaderSpriteInfo, Dictionary<string, string> shaderMapStrings) { 
 
             if (!File.Exists(mapFile))
             {
@@ -298,7 +310,10 @@ namespace FilterMapShaderNames
                             }
                         }
                         (TextureType type, int stuff) = SharedStuff.TextureTypeFromTextureName(shaderName);
-                        (bool onlyPot, string shaderString) = SharedStuff.MakeShader(type, normalFinalShaderName, $"map {normalFinalShaderName}", neededResize, null, renderProperties, replacementShaderFinalName);
+
+                        string shaderMapString = shaderMapStrings.ContainsKey(shaderName) ? shaderMapStrings[shaderName] : $"map {normalFinalShaderName}";
+
+                        (bool onlyPot, string shaderString) = SharedStuff.MakeShader(type, normalFinalShaderName, shaderMapString, neededResize, null, renderProperties, replacementShaderFinalName);
                         //shaderFile.Append(shaderString);
 
                         specializedShaders[replacementShaderFinalName] = shaderString;
@@ -509,6 +524,40 @@ namespace FilterMapShaderNames
                 string brushesString = entity.Groups["brushes"].Value;
                 EntityProperties props = EntityProperties.FromString(propsString);
 
+                RenderProperties renderProperties = SharedStuff.ParseRenderProperties(props);
+
+                string renderPropsHash = "";
+                if (renderProperties != null)
+                {
+                    renderPropsHash = renderProperties.GetHashString().Substring(0, 6);
+
+                    // Do: If func_water add waterFluid property, respect wave height maybe?
+                    /*brushesString = findShader.Replace(brushesString, (Match match) => {
+                        string shaderName = match.Groups["shaderName"].Value.Trim();
+                        string normalFinalShaderName = SharedStuff.fixUpShaderName($"textures/wadConvert/{shaderName}");
+                        bool neededResize = false;
+
+                        string replacementShaderName = $"{shaderName}_r{renderPropsHash}";
+                        string replacementShaderFinalName = SharedStuff.fixUpShaderName($"textures/wadConvert/{replacementShaderName}");
+                        if (shaderNeedsResizing.ContainsKey(normalFinalShaderName))
+                        {
+                            if (shaderNeedsResizing[normalFinalShaderName])
+                            {
+                                neededResize = true;
+                            }
+                        }
+                        (TextureType type, int stuff) = SharedStuff.TextureTypeFromTextureName(shaderName);
+                        (bool onlyPot, string shaderString) = SharedStuff.MakeShader(type, normalFinalShaderName, $"map {normalFinalShaderName}", neededResize, null, renderProperties, replacementShaderFinalName);
+                        //shaderFile.Append(shaderString);
+
+                        specializedShaders[replacementShaderFinalName] = shaderString;
+
+                        resave = true;
+
+                        return match.Groups["vecs"] + " " + replacementShaderName + " [";
+                    });*/
+                }
+
                 double explicitPitch = 0;
                 double explicitYaw = 0;
                 double explicitRoll = 0;
@@ -693,6 +742,59 @@ namespace FilterMapShaderNames
                         }
 
 
+                        // Figure out our shader
+                        string shaderToUse = texturePath;
+                        if (renderProperties != null)
+                        {
+                            // Make new shader respecting the render properties
+                            (TextureType type, int specialMatchCount) = SharedStuff.TextureTypeFromTextureName(Path.GetFileNameWithoutExtension(relativePath));
+
+                            bool isIndexAlpha = false;
+                            //bool mustBeHigherThanWide = false;
+
+                            type |= SharedStuff.TextureTypeFromSpriteProperties(spriteInfo.texFormat, spriteInfo.type);
+                            //if ((type & TextureType.AutoSprite2) > 0)
+                            //{
+                            //    mustBeHigherThanWide = true;
+                            //}
+                            if (spriteInfo.texFormat == SpriteTexFormat.IndexAlpha)
+                            {
+                                isIndexAlpha = true;
+                            }
+
+                            Vector4? thisShaderLightIntensity = null;
+
+                            /*if (radIntensities.ContainsKey(originalShaderName))
+                            {
+                                type |= TextureType.LightEmitting;
+                                thisShaderLightIntensity = radIntensities[originalShaderName];
+                            }
+                            else if (radIntensities.ContainsKey(originalFilename))
+                            {
+                                type |= TextureType.LightEmitting;
+                                thisShaderLightIntensity = radIntensities[originalFilename];
+                            }*/
+
+                            type |= TextureType.Nonsolid; // Sprites should always be nonsolid, pretty sure. If not we'll go back and fix idk.
+
+                            string replacementShaderName = $"{texturePath}_r{renderPropsHash}";
+                            bool neededResize = false;
+                            if (shaderNeedsResizing.ContainsKey(texturePath))
+                            {
+                                if (shaderNeedsResizing[texturePath])
+                                {
+                                    neededResize = true;
+                                }
+                            }
+
+                            (bool onlyPot, string shaderString) = SharedStuff.MakeShader(type, texturePath, !string.IsNullOrWhiteSpace(spriteInfo.spriteMap) ? spriteInfo.spriteMap : $"map {texturePath}", neededResize, null, renderProperties, replacementShaderName);
+
+                            specializedShaders[replacementShaderName] = shaderString;
+                        }
+
+
+
+
                         Vector3 topleft = origin - right * spriteInfo.width * scale * 0.5f + up * spriteInfo.height * scale * 0.5f;
                         Vector3 topright = origin + right * spriteInfo.width * scale * 0.5f + up * spriteInfo.height * scale * 0.5f;
                         Vector3 bottomleft = origin - right * spriteInfo.width * scale * 0.5f - up * spriteInfo.height * scale * 0.5f;
@@ -703,7 +805,7 @@ namespace FilterMapShaderNames
                         spritePatches.Append("\n\t{");
                         spritePatches.Append("\n\tpatchDef2");
                         spritePatches.Append("\n\t{");
-                        spritePatches.Append($"\n\t{texturePath}");
+                        spritePatches.Append($"\n\t{shaderToUse}");
                         spritePatches.Append("\n\t( 3 3 0 0 0 )");
                         spritePatches.Append("\n\t(");
 

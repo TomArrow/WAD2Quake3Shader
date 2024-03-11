@@ -105,6 +105,7 @@ namespace WAD2Q3SharedStuff
         AutoSprite = (1 << 18),
         AutoSprite2 = (1 << 19),
         FixedSprite = (1 << 20),
+        Nonsolid = (1 << 21),
     }
 
 
@@ -399,7 +400,7 @@ namespace WAD2Q3SharedStuff
             if (renderProperties != null || (type & TextureType.WaterFluid) > 0 || (type & TextureType.Transparent) > 0 || (type & TextureType.DecalDarken) > 0 || (type & TextureType.DecalBrighten) > 0 
                 || (type & TextureType.LightEmitting) > 0 || (type & TextureType.Scroll) > 0 || (type & TextureType.Toggling) > 0 || (type & TextureType.Lava) > 0 || (type & TextureType.Slime) > 0
                 || (type & TextureType.PseudoWater) > 0   || (type & TextureType.PseudoLava) > 0   || (type & TextureType.PseudoSlime) > 0   || (type & TextureType.Additive) > 0   || (type & TextureType.Fullbright) > 0  || (type & TextureType.Chrome) > 0
-                || (type & TextureType.TrueAlphaTransparency) > 0|| (type & TextureType.AutoSprite) > 0|| (type & TextureType.AutoSprite2) > 0|| (type & TextureType.FixedSprite) > 0)
+                || (type & TextureType.TrueAlphaTransparency) > 0|| (type & TextureType.AutoSprite) > 0|| (type & TextureType.AutoSprite2) > 0|| (type & TextureType.FixedSprite) > 0|| (type & TextureType.Nonsolid) > 0)
             {
                 shaderWritten = true;
 
@@ -456,6 +457,8 @@ namespace WAD2Q3SharedStuff
                 {
                     shaderString.Append($"\n\t{startInsert}");
                 }
+
+                shaderString.Append($"\n\t//generatedShaderMap:{mapString}");
 
                 if (resized)
                 {
@@ -685,6 +688,11 @@ namespace WAD2Q3SharedStuff
                 }
 
 
+                if ((type & TextureType.Nonsolid) > 0)
+                {
+                    shaderString.Append($"\n\tsurfaceparm nonsolid");
+                }
+
                 if (renderProperties != null) { 
                     if(renderProperties.renderamt != -1 && renderProperties.renderamt != 255/* && renderProperties.rendermode != 0*/) // rendermode 0 (normal) doesn't respect this stuff. but keep it anyway, whatever
                     {
@@ -707,7 +715,7 @@ namespace WAD2Q3SharedStuff
                     {
                         shaderString.Append($"\n\tsurfaceparm nonopaque");
                     }
-                    if (renderProperties.nonSolid)
+                    if (renderProperties.nonSolid && (type & TextureType.Nonsolid) == 0)
                     {
                         shaderString.Append($"\n\tsurfaceparm nonsolid");
                     }
@@ -1351,22 +1359,42 @@ namespace WAD2Q3SharedStuff
 
 
         static Regex spriteInfoRegex = new Regex(@"\/\/sprite:(?<spriteInfo>[^\n]+)", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
+        static Regex spriteMapInfoRegex = new Regex(@"\/\/generatedShaderMap:(?<shaderMapInfo>[^\n]+)", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
         public static Dictionary<string,string> GetSpriteInfo(string shader)
         {
             Match match = null;
+            Match matchMap = null;
             if(!(match = spriteInfoRegex.Match(shader)).Success)
             {
                 return null;
             }
+            if(!(matchMap = spriteMapInfoRegex.Match(shader)).Success)
+            {
+                Console.WriteLine("Sprite shader missing spriteMap info.");
+            }
 
             string spriteInfo = match.Groups["spriteInfo"].Value;
+            string spriteMapInfo = matchMap.Groups["shaderMapInfo"].Value;
             string[] spriteInfoArr = spriteInfo.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             Dictionary<string, string> retVal = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
             for (int i = 0; i < spriteInfoArr.Length - 1; i+=2)
             {
                 retVal[spriteInfoArr[i]] = spriteInfoArr[i + 1];
             }
+            retVal["spriteMap"] = spriteMapInfo;
             return retVal.Count > 0 ? retVal : null;
+        }
+
+        public static string GetShaderMapString(string shader)
+        {
+            Match matchMap = null;
+            if (!(matchMap = spriteMapInfoRegex.Match(shader)).Success)
+            {
+                return null;
+            }
+
+            string spriteMapInfo = matchMap.Groups["shaderMapInfo"].Value;
+            return spriteMapInfo;
         }
 
 

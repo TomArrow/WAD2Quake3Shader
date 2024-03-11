@@ -153,6 +153,7 @@ namespace SPR2Quake3Shader
                     thisShaderLightIntensity = radIntensities[originalFilename];
                 }
 
+                type |= TextureType.Nonsolid; // Sprites should always be nonsolid, pretty sure. If not we'll go back and fix idk.
 
                 for (int i = 0; i < numFrames; i++)
                 {
@@ -349,9 +350,12 @@ namespace SPR2Quake3Shader
                 StringBuilder shaderString = new StringBuilder();
                 StringBuilder shaderStringPOT = new StringBuilder();
 
-                string shaderComment = $"//sprite:type:{(int)spriteType}:texFormat:{(int)textureFormat}:width:{maxWidth}:height:{maxHeight}";
+                string spriteMap = frameImages.Count > 1 ? animMapString.ToString() : $"map textures/sprConvert/{SharedStuff.fixUpShaderName(relativePathWithoutExtension)}";
 
-                (bool onlyPOT, string shaderText)  = SharedStuff.MakeShader(type,$"textures/sprConvert/{SharedStuff.fixUpShaderName(relativePathWithoutExtension)}", frameImages.Count > 1 ? animMapString.ToString() :$"map textures/sprConvert/{SharedStuff.fixUpShaderName(relativePathWithoutExtension)}", needResize, thisShaderLightIntensity,null,null,true, shaderComment);
+                string shaderComment = $"//sprite:type:{(int)spriteType}:texFormat:{(int)textureFormat}:width:{maxWidth}:height:{maxHeight}";
+                //shaderComment += $"\n\t//spriteMap:{spriteMap}";
+
+                (bool onlyPOT, string shaderText)  = SharedStuff.MakeShader(type,$"textures/sprConvert/{SharedStuff.fixUpShaderName(relativePathWithoutExtension)}", spriteMap, needResize, thisShaderLightIntensity,null,null,true, shaderComment);
                 
                 if (shaderText != null)
                 {
