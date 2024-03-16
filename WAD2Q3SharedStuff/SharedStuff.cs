@@ -1076,7 +1076,8 @@ namespace WAD2Q3SharedStuff
         {
             Dictionary<string, Vector4> radIntensities = new Dictionary<string, Vector4>(StringComparer.InvariantCultureIgnoreCase);
 
-            string[] rads = Directory.GetFiles(folder, "*.rad");
+            //string[] rads = Directory.GetFiles(folder, "*.rad");
+            string[] rads = crawlDirectory(folder,"*.rad");
             if (rads != null && rads.Length > 0)
             {
                 foreach (string rad in rads)
@@ -1228,14 +1229,20 @@ namespace WAD2Q3SharedStuff
             return retVal.ToArray();
         }
 
-        public static string[] crawlDirectory(string dir)
+        public static string[] crawlDirectory(string dir, string filter = null)
         {
             if (!Directory.Exists(dir))
             {
                 return new string[0];
             }
             List<string> filesAll = new List<string>();
-            filesAll.AddRange(Directory.GetFiles(dir));
+            if(filter != null)
+            {
+                filesAll.AddRange(Directory.GetFiles(dir,filter));
+            } else
+            {
+                filesAll.AddRange(Directory.GetFiles(dir));
+            }
             string[] dirs = Directory.GetDirectories(dir);
             foreach (string subdir in dirs)
             {
