@@ -492,16 +492,6 @@ namespace FilterMapShaderNames
             shaderFile.Append($"\n\tskyParms gfx/env/{skyname} 512 -");
             shaderFile.Append("\n}\n");
 
-
-            foreach(var kvp in specializedShaders)
-            {
-                shaderFile.Append(kvp.Value);
-            }
-
-            Directory.CreateDirectory("shaders");
-            File.WriteAllText($"shaders/{simplifiedMapname}.shader", shaderFile.ToString());
-
-
             destText = findShader.Replace(destText, (match) => {
                 string shaderName = match.Groups["shaderName"].Value.Trim();
                 if (shaderName.StartsWith("sky",StringComparison.InvariantCultureIgnoreCase))
@@ -1091,6 +1081,15 @@ namespace FilterMapShaderNames
 
             destText += newEntities.ToString();
             destText += spritePatches.ToString();
+
+
+            foreach (var kvp in specializedShaders)
+            {
+                shaderFile.Append(kvp.Value);
+            }
+
+            Directory.CreateDirectory("shaders");
+            File.WriteAllText($"shaders/{simplifiedMapname}.shader", shaderFile.ToString());
 
             File.WriteAllText($"{mapFile}.filtered.map", destText);
         }
