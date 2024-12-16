@@ -10,10 +10,6 @@ using System.Collections.Generic;
 namespace FilterMapShaderNames
 {
     // TODO models path wrong
-    // TODO info_teleporter_destination must be misc_teleporter_dest
-    // TODO func_door: angles -> angle (only yaw with special vals for up/down)
-    // TODO misc_teleporter_dest -> also just angle i guess?
-    // TODO when writing out angles, have them always have a 0. instead of just ., it breaks vanilla sscanf in qvm
     class SpriteInfo {
         public SpriteTexFormat texFormat = SpriteTexFormat.Normal;
         public SpriteType type = SpriteType.Oriented;
@@ -661,6 +657,8 @@ namespace FilterMapShaderNames
                     props["classname"] = "misc_model";
                     //props["model"] = "models/mdlConvert/" + Path.GetFileName(Path.ChangeExtension(props["model"], ".obj"));
                     string modelPath = Path.GetDirectoryName(props["model"]);
+
+                    modelPath = modelPath.Trim(new char[] {'/','\\',' ' });
                     if (modelPath.StartsWith("models",StringComparison.InvariantCultureIgnoreCase))
                     {
                         if (modelPath.Length >= "models/".Length)
@@ -984,11 +982,11 @@ namespace FilterMapShaderNames
                     brushesString = MakeFacesDetail(brushesString);
                     resave = true;
                 }
-                else if (props["classname"].Equals("func_door", StringComparison.InvariantCultureIgnoreCase))
-                {
-                    brushesString = MakeFacesDetail(brushesString);
-                    resave = true;
-                }
+                //else if (props["classname"].Equals("func_door", StringComparison.InvariantCultureIgnoreCase))
+                //{
+                //    brushesString = MakeFacesDetail(brushesString);
+                //    resave = true;
+                //}
                 else if (props["classname"].Equals("func_water", StringComparison.InvariantCultureIgnoreCase))
                 {
                     props["classname"] = "func_group";
