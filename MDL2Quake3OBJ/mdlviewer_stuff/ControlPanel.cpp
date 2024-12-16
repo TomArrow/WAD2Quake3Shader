@@ -757,7 +757,7 @@ ControlPanel::initBodyparts ()
 		//cBodypart->removeAll ();
 		if (hdr->numbodyparts > 0)
 		{
-			for (i = 0; i < hdr->numbodyparts; i++)
+			//for (i = 0; i < hdr->numbodyparts; i++)
 				//cBodypart->add (pbodyparts[i].name);
 
 			//cBodypart->select (0);

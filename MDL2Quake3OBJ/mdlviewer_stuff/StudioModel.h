@@ -85,7 +85,7 @@ private:
 	void					SlerpBones( vec4_t q1[], vec3_t pos1[], vec4_t q2[], vec3_t pos2[], float s );
 	void					SetUpBones ( void );
 
-	void					WritePoints(std::stringstream *ss, std::stringstream* ssMtl);
+	void					WritePoints(std::stringstream* ss, std::stringstream* ssMtl, int* vertIndexOffset, int* uvIndexOffset);
 
 	void					Lighting (float *lv, int bone, int flags, vec3_t normal);
 	void					Chrome (int *chrome, int bone, vec3_t normal);

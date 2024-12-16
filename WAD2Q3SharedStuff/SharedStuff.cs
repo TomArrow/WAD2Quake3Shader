@@ -1246,7 +1246,7 @@ namespace WAD2Q3SharedStuff
             string[] dirs = Directory.GetDirectories(dir);
             foreach (string subdir in dirs)
             {
-                filesAll.AddRange(crawlDirectory(subdir));
+                filesAll.AddRange(crawlDirectory(subdir, filter));
             }
 
             return filesAll.ToArray();

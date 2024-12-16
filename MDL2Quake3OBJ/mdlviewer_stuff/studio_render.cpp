@@ -597,6 +597,7 @@ inputs:
 void StudioModel::WriteModel( std::stringstream* ss, std::stringstream* ssMtl)
 {
 	int i;
+	int vertOffset = 0, uvOffset = 0;
 
 	if (!m_pstudiohdr)
 		return;
@@ -625,7 +626,7 @@ void StudioModel::WriteModel( std::stringstream* ss, std::stringstream* ssMtl)
 	{
 		SetupModel( i );
 		if (g_viewerSettings.transparency > 0.0f)
-			WritePoints( ss,ssMtl);
+			WritePoints( ss,ssMtl, &vertOffset,&uvOffset);
 	}
 
 	// draw bones
@@ -783,7 +784,7 @@ void StudioModel::WriteModel( std::stringstream* ss, std::stringstream* ssMtl)
 
 ================
 */
-void StudioModel::WritePoints( std::stringstream *ss, std::stringstream* ssMtl)
+void StudioModel::WritePoints( std::stringstream *ss, std::stringstream* ssMtl, int* vertIndexOffset, int* uvIndexOffset)
 {
 	int					i, j;
 	mstudiomesh_t		*pmesh;
@@ -796,6 +797,7 @@ void StudioModel::WritePoints( std::stringstream *ss, std::stringstream* ssMtl)
 	float				*lv;
 	float				lv_tmp;
 	short				*pskinref;
+	int					uvIndexCount = 0;
 
 
 	pvertbone = ((byte *)m_pstudiohdr + m_pmodel->vertinfoindex);
@@ -928,6 +930,7 @@ void StudioModel::WritePoints( std::stringstream *ss, std::stringstream* ssMtl)
 
 					av = g_pxformverts[ptricmds[0]];
 					//glVertex3f(av[0], av[1], av[2]);
+					uvIndexCount++;
 				}
 				//glEnd( );
 			}	
@@ -1043,7 +1046,7 @@ void StudioModel::WritePoints( std::stringstream *ss, std::stringstream* ssMtl)
 						else if (index > 1) {
 
 							//(*ss) << "f " << triangleFanCenter << "/" << (uvIndex - 2) << " " << lastVert << "/" << (uvIndex - 1) << " " << avIndex << "/" << uvIndex << "\n";
-							(*ss) << "f "  << lastVert << "/" << (uvIndex - 1) << " " << triangleFanCenter << "/" << triangleFanCenterUV << " " << avIndex << "/" << uvIndex << "\n";
+							(*ss) << "f "  << lastVert+*vertIndexOffset << "/" << (uvIndex - 1 + *uvIndexOffset) << " " << triangleFanCenter + *vertIndexOffset << "/" << triangleFanCenterUV+ *uvIndexOffset << " " << avIndex + *vertIndexOffset << "/" << uvIndex + *uvIndexOffset << "\n";
 						}
 
 						lastLastVert = lastVert;
@@ -1052,10 +1055,10 @@ void StudioModel::WritePoints( std::stringstream *ss, std::stringstream* ssMtl)
 					else {
 						if (index > 1) {
 							if (index % 2) {
-								(*ss) << "f " << lastLastVert << "/" << (uvIndex - 2) << " " << lastVert << "/" << (uvIndex - 1) << " " << avIndex << "/" << uvIndex << "\n";
+								(*ss) << "f " << lastLastVert + *vertIndexOffset << "/" << (uvIndex - 2 + *uvIndexOffset) << " " << lastVert + *vertIndexOffset << "/" << (uvIndex - 1 + *uvIndexOffset) << " " << avIndex + *vertIndexOffset << "/" << uvIndex + *uvIndexOffset << "\n";
 							}
 							else {
-								(*ss) << "f " << lastVert << "/" << (uvIndex - 1) << " " << lastLastVert << "/" << (uvIndex - 2) << " " <<  avIndex << "/" << uvIndex << "\n";
+								(*ss) << "f " << lastVert + *vertIndexOffset << "/" << (uvIndex - 1 + *uvIndexOffset) << " " << lastLastVert + *vertIndexOffset << "/" << (uvIndex - 2 + *uvIndexOffset) << " " <<  avIndex + *vertIndexOffset << "/" << uvIndex + *uvIndexOffset << "\n";
 							}
 						}
 
@@ -1071,5 +1074,8 @@ void StudioModel::WritePoints( std::stringstream *ss, std::stringstream* ssMtl)
 			}	
 		}
 	}
+
+	*vertIndexOffset += m_pmodel->numverts;
+	*uvIndexOffset += uvIndexCount;
 }
 
