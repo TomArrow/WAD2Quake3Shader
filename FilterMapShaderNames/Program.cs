@@ -9,7 +9,11 @@ using System.Collections.Generic;
 
 namespace FilterMapShaderNames
 {
-
+    // TODO models path wrong
+    // TODO info_teleporter_destination must be misc_teleporter_dest
+    // TODO func_door: angles -> angle (only yaw with special vals for up/down)
+    // TODO misc_teleporter_dest -> also just angle i guess?
+    // TODO when writing out angles, have them always have a 0. instead of just ., it breaks vanilla sscanf in qvm
     class SpriteInfo {
         public SpriteTexFormat texFormat = SpriteTexFormat.Normal;
         public SpriteType type = SpriteType.Oriented;
@@ -560,7 +564,7 @@ namespace FilterMapShaderNames
                     if (double.TryParse(angleTmp, out pitchVal))
                     {
                         explicitPitch = -pitchVal;
-                        angleTmp = (-pitchVal).ToString("#.000");
+                        angleTmp = (-pitchVal).ToString("0.000");
                     }
                     props.Remove("pitch");
                     props["pitch"] = angleTmp;
@@ -599,7 +603,10 @@ namespace FilterMapShaderNames
                     double[] anglesParsed = SharedStuff.parseDoubleArray(anglesTmp);
                     if(anglesParsed.Length == 3) // Q3 doesn't have extra keys for this stuff.
                     {
-                        anglesParsed[0] = -anglesParsed[0];
+                        if(!props["classname"].Equals("func_door", StringComparison.InvariantCultureIgnoreCase))
+                        {
+                            anglesParsed[0] = -anglesParsed[0]; // forgot why i did this but for doors this messes it up
+                        }
                         if (explicitYaw != 0)
                         {
                             anglesParsed[1] = explicitYaw;
@@ -612,7 +619,7 @@ namespace FilterMapShaderNames
                         {
                             anglesParsed[2] = explicitRoll;
                         }
-                        anglesTmp = (anglesParsed[0]).ToString("#.000") + " " + anglesParsed[1].ToString("#.000") + " " + anglesParsed[2].ToString("#.000");
+                        anglesTmp = (anglesParsed[0]).ToString("0.000") + " " + anglesParsed[1].ToString("0.000") + " " + anglesParsed[2].ToString("0.000");
                     } else if (anglesParsed.Length == 1)
                     {
                         double parsedNumber = anglesParsed[0];
@@ -640,7 +647,7 @@ namespace FilterMapShaderNames
                         {
                             anglesParsed[2] = explicitRoll;
                         }
-                        anglesTmp = (anglesParsed[0]).ToString("#.000") + " " + anglesParsed[1].ToString("#.000") + " " + anglesParsed[2].ToString("#.000");
+                        anglesTmp = (anglesParsed[0]).ToString("0.000") + " " + anglesParsed[1].ToString("0.000") + " " + anglesParsed[2].ToString("0.000");
                     }
                     props.Remove("Angles");
                     props["angles"] = anglesTmp;
@@ -823,31 +830,31 @@ namespace FilterMapShaderNames
                         spritePatches.Append("\n\t( ");
 
                         spritePatches.Append("( ");
-                        spritePatches.Append(topleft.X.ToString("#.000"));
+                        spritePatches.Append(topleft.X.ToString("0.000"));
                         spritePatches.Append(" ");
-                        spritePatches.Append(topleft.Y.ToString("#.000"));
+                        spritePatches.Append(topleft.Y.ToString("0.000"));
                         spritePatches.Append(" ");
-                        spritePatches.Append(topleft.Z.ToString("#.000"));
+                        spritePatches.Append(topleft.Z.ToString("0.000"));
                         spritePatches.Append(" ");
                         spritePatches.Append("0 0");
                         spritePatches.Append(" ) ");
 
                         spritePatches.Append("( ");
-                        spritePatches.Append((0.5f*(topleft+topright)).X.ToString("#.000"));
+                        spritePatches.Append((0.5f*(topleft+topright)).X.ToString("0.000"));
                         spritePatches.Append(" ");
-                        spritePatches.Append((0.5f * (topleft + topright)).Y.ToString("#.000"));
+                        spritePatches.Append((0.5f * (topleft + topright)).Y.ToString("0.000"));
                         spritePatches.Append(" ");
-                        spritePatches.Append((0.5f * (topleft + topright)).Z.ToString("#.000"));
+                        spritePatches.Append((0.5f * (topleft + topright)).Z.ToString("0.000"));
                         spritePatches.Append(" ");
                         spritePatches.Append("0.5 0");
                         spritePatches.Append(" ) ");
 
                         spritePatches.Append("( ");
-                        spritePatches.Append(topright.X.ToString("#.000"));
+                        spritePatches.Append(topright.X.ToString("0.000"));
                         spritePatches.Append(" ");
-                        spritePatches.Append(topright.Y.ToString("#.000"));
+                        spritePatches.Append(topright.Y.ToString("0.000"));
                         spritePatches.Append(" ");
-                        spritePatches.Append(topright.Z.ToString("#.000"));
+                        spritePatches.Append(topright.Z.ToString("0.000"));
                         spritePatches.Append(" ");
                         spritePatches.Append("1 0");
                         spritePatches.Append(" ) ");
@@ -859,31 +866,31 @@ namespace FilterMapShaderNames
                         spritePatches.Append("\n\t( ");
 
                         spritePatches.Append("( ");
-                        spritePatches.Append((0.5f * (topleft + bottomleft)).X.ToString("#.000"));
+                        spritePatches.Append((0.5f * (topleft + bottomleft)).X.ToString("0.000"));
                         spritePatches.Append(" ");
-                        spritePatches.Append((0.5f * (topleft + bottomleft)).Y.ToString("#.000"));
+                        spritePatches.Append((0.5f * (topleft + bottomleft)).Y.ToString("0.000"));
                         spritePatches.Append(" ");
-                        spritePatches.Append((0.5f * (topleft + bottomleft)).Z.ToString("#.000"));
+                        spritePatches.Append((0.5f * (topleft + bottomleft)).Z.ToString("0.000"));
                         spritePatches.Append(" ");
                         spritePatches.Append("0 0.5");
                         spritePatches.Append(" ) ");
 
                         spritePatches.Append("( ");
-                        spritePatches.Append((0.25f*(topleft + bottomleft+ bottomright + topright)).X.ToString("#.000"));
+                        spritePatches.Append((0.25f*(topleft + bottomleft+ bottomright + topright)).X.ToString("0.000"));
                         spritePatches.Append(" ");
-                        spritePatches.Append((0.25f * (topleft + bottomleft + bottomright + topright)).Y.ToString("#.000"));
+                        spritePatches.Append((0.25f * (topleft + bottomleft + bottomright + topright)).Y.ToString("0.000"));
                         spritePatches.Append(" ");
-                        spritePatches.Append((0.25f * (topleft + bottomleft + bottomright + topright)).Z.ToString("#.000"));
+                        spritePatches.Append((0.25f * (topleft + bottomleft + bottomright + topright)).Z.ToString("0.000"));
                         spritePatches.Append(" ");
                         spritePatches.Append("0.5 0.5");
                         spritePatches.Append(" ) ");
 
                         spritePatches.Append("( ");
-                        spritePatches.Append((0.5f * (bottomright + topright)).X.ToString("#.000"));
+                        spritePatches.Append((0.5f * (bottomright + topright)).X.ToString("0.000"));
                         spritePatches.Append(" ");
-                        spritePatches.Append((0.5f * (bottomright + topright)).Y.ToString("#.000"));
+                        spritePatches.Append((0.5f * (bottomright + topright)).Y.ToString("0.000"));
                         spritePatches.Append(" ");
-                        spritePatches.Append((0.5f * (bottomright + topright)).Z.ToString("#.000"));
+                        spritePatches.Append((0.5f * (bottomright + topright)).Z.ToString("0.000"));
                         spritePatches.Append(" ");
                         spritePatches.Append("1 0.5");
                         spritePatches.Append(" ) ");
@@ -895,31 +902,31 @@ namespace FilterMapShaderNames
                         spritePatches.Append("\n\t( ");
 
                         spritePatches.Append("( ");
-                        spritePatches.Append(bottomleft.X.ToString("#.000"));
+                        spritePatches.Append(bottomleft.X.ToString("0.000"));
                         spritePatches.Append(" ");
-                        spritePatches.Append(bottomleft.Y.ToString("#.000"));
+                        spritePatches.Append(bottomleft.Y.ToString("0.000"));
                         spritePatches.Append(" ");
-                        spritePatches.Append(bottomleft.Z.ToString("#.000"));
+                        spritePatches.Append(bottomleft.Z.ToString("0.000"));
                         spritePatches.Append(" ");
                         spritePatches.Append("0 1");
                         spritePatches.Append(" ) ");
 
                         spritePatches.Append("( ");
-                        spritePatches.Append((0.5f * (bottomleft + bottomright)).X.ToString("#.000"));
+                        spritePatches.Append((0.5f * (bottomleft + bottomright)).X.ToString("0.000"));
                         spritePatches.Append(" ");
-                        spritePatches.Append((0.5f * (bottomleft + bottomright)).Y.ToString("#.000"));
+                        spritePatches.Append((0.5f * (bottomleft + bottomright)).Y.ToString("0.000"));
                         spritePatches.Append(" ");
-                        spritePatches.Append((0.5f * (bottomleft + bottomright)).Z.ToString("#.000"));
+                        spritePatches.Append((0.5f * (bottomleft + bottomright)).Z.ToString("0.000"));
                         spritePatches.Append(" ");
                         spritePatches.Append("0.5 1");
                         spritePatches.Append(" ) ");
 
                         spritePatches.Append("( ");
-                        spritePatches.Append(bottomright.X.ToString("#.000"));
+                        spritePatches.Append(bottomright.X.ToString("0.000"));
                         spritePatches.Append(" ");
-                        spritePatches.Append(bottomright.Y.ToString("#.000"));
+                        spritePatches.Append(bottomright.Y.ToString("0.000"));
                         spritePatches.Append(" ");
-                        spritePatches.Append(bottomright.Z.ToString("#.000"));
+                        spritePatches.Append(bottomright.Z.ToString("0.000"));
                         spritePatches.Append(" ");
                         spritePatches.Append("1 1");
                         spritePatches.Append(" ) ");
@@ -977,9 +984,20 @@ namespace FilterMapShaderNames
                     brushesString = MakeFacesDetail(brushesString);
                     resave = true;
                 }
+                else if (props["classname"].Equals("func_door", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    brushesString = MakeFacesDetail(brushesString);
+                    resave = true;
+                }
                 else if (props["classname"].Equals("func_water", StringComparison.InvariantCultureIgnoreCase))
                 {
                     props["classname"] = "func_group";
+                    brushesString = MakeFacesDetail(brushesString);
+                    resave = true;
+                }
+                else if (props["classname"].Equals("info_teleport_destination", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    props["classname"] = "misc_teleporter_dest";
                     brushesString = MakeFacesDetail(brushesString);
                     resave = true;
                 }
@@ -1033,7 +1051,7 @@ namespace FilterMapShaderNames
                         targetProps["classname"] = "target_position";
                         targetProps["targetname"] = $"ladder{ladderIndex}";
                         props["target"] = $"ladder{ladderIndex}";
-                        targetProps["origin"] = destination.X.ToString("#.000") + " " + destination.Y.ToString("#.000") + " " + destination.Z.ToString("#.000");
+                        targetProps["origin"] = destination.X.ToString("0.000") + " " + destination.Y.ToString("0.000") + " " + destination.Z.ToString("0.000");
 
                         newEntities.Append("\n{");
                         newEntities.Append(targetProps.ToString());

@@ -17,7 +17,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WAD2Q3SharedStuff", "WAD2Q3
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MDL2Quake3OBJ", "MDL2Quake3OBJ\MDL2Quake3OBJ.vcxproj", "{253363CD-BE9E-4965-87B8-58AB9C1D02FB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SPR2Quake3Shader", "SPR2Quake3Shader\SPR2Quake3Shader.csproj", "{DAFD5B78-75A5-48C1-9DB6-DF38D7C573C8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SPR2Quake3Shader", "SPR2Quake3Shader\SPR2Quake3Shader.csproj", "{DAFD5B78-75A5-48C1-9DB6-DF38D7C573C8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
