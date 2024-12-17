@@ -78,7 +78,7 @@ rm "_converted/shaders/$1_tmp.shader"
 
 mkdir _converted/maps
 mkdir _converted/models
-mkdir _converted/models/mdlConvert
+#mkdir _converted/models/mdlConvert
 mkdir _converted/textures
 mkdir _converted/textures/wadConvert
 cp -r models/models _converted/models
