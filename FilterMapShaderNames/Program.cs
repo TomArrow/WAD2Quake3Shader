@@ -290,37 +290,51 @@ namespace FilterMapShaderNames
 
                 RenderProperties renderProperties = SharedStuff.ParseRenderProperties(props);
 
-                if (renderProperties != null)
+                //if (renderProperties != null)
                 {
-                    string renderPropsHash = renderProperties.GetHashString().Substring(0, 6);
+                    string renderPropsHash = renderProperties != null ? renderProperties.GetHashString().Substring(0, 6) : null;
+                    bool isTrigger = props["classname"].StartsWith("trigger_", StringComparison.OrdinalIgnoreCase);
 
                     // Do: If func_water add waterFluid property, respect wave height maybe?
                     brushesString = findShader.Replace(brushesString,(Match match) => {
                         string shaderName = match.Groups["shaderName"].Value.Trim();
-                        string normalFinalShaderName = SharedStuff.fixUpShaderName($"textures/wadConvert/{shaderName}");
-                        bool neededResize = false;
 
-                        string replacementShaderName = $"{shaderName}_r{renderPropsHash}";
-                        string replacementShaderFinalName = SharedStuff.fixUpShaderName($"textures/wadConvert/{replacementShaderName}");
-                        if (shaderNeedsResizing.ContainsKey(normalFinalShaderName))
+                        if (shaderName.Equals("AAATRIGGER",StringComparison.OrdinalIgnoreCase) && isTrigger)
                         {
-                            if (shaderNeedsResizing[normalFinalShaderName])
-                            {
-                                neededResize = true;
-                            }
+                            resave = true;
+                            return match.Groups["vecs"] + " " + "system/trigger" + " [";
                         }
-                        (TextureType type, int stuff) = SharedStuff.TextureTypeFromTextureName(shaderName);
+                        else if(renderProperties != null)
+                        {
+                            string normalFinalShaderName = SharedStuff.fixUpShaderName($"textures/wadConvert/{shaderName}");
+                            bool neededResize = false;
 
-                        string shaderMapString = shaderMapStrings.ContainsKey(shaderName) ? shaderMapStrings[shaderName] : $"map {normalFinalShaderName}";
+                            string replacementShaderName = $"{shaderName}_r{renderPropsHash}";
+                            string replacementShaderFinalName = SharedStuff.fixUpShaderName($"textures/wadConvert/{replacementShaderName}");
+                            if (shaderNeedsResizing.ContainsKey(normalFinalShaderName))
+                            {
+                                if (shaderNeedsResizing[normalFinalShaderName])
+                                {
+                                    neededResize = true;
+                                }
+                            }
+                            (TextureType type, int stuff) = SharedStuff.TextureTypeFromTextureName(shaderName);
 
-                        (bool onlyPot, string shaderString) = SharedStuff.MakeShader(type, normalFinalShaderName, shaderMapString, neededResize, null, renderProperties, replacementShaderFinalName);
-                        //shaderFile.Append(shaderString);
+                            string shaderMapString = shaderMapStrings.ContainsKey(shaderName) ? shaderMapStrings[shaderName] : $"map {normalFinalShaderName}";
 
-                        specializedShaders[replacementShaderFinalName] = shaderString;
+                            (bool onlyPot, string shaderString) = SharedStuff.MakeShader(type, normalFinalShaderName, shaderMapString, neededResize, null, renderProperties, replacementShaderFinalName);
+                            //shaderFile.Append(shaderString);
 
-                        resave = true;
+                            specializedShaders[replacementShaderFinalName] = shaderString;
 
-                        return match.Groups["vecs"] + " " + replacementShaderName + " [";
+                            resave = true;
+
+                            return match.Groups["vecs"] + " " + replacementShaderName + " [";
+                        }
+                        else
+                        {
+                            return match.Value;
+                        }
                     });
                 }
 
@@ -497,6 +511,10 @@ namespace FilterMapShaderNames
                 if (shaderName.StartsWith("sky",StringComparison.InvariantCultureIgnoreCase))
                 {
                     return match.Groups["vecs"] + " " + skyShaderPath + " [";
+                }
+                if (shaderName.Equals("system/trigger")) // leave these
+                {
+                    return match.Value;
                 }
                 return match.Groups["vecs"] + " wadConvert/" + SharedStuff.fixUpShaderName(shaderName) + " [";
             });

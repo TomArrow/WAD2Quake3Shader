@@ -13,6 +13,7 @@ using PCRE;
 namespace WAD2Q3SharedStuff
 {
     // TODO Globaltexture when deformvertexes
+    // TODO aaatrigger -> system/trigger
     public class RenderProperties
     {
         public int rendermode = -1;

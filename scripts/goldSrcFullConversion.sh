@@ -3,7 +3,7 @@
 # Need these in PATH:
 # Tools from this repo and:
 # https://github.com/twhl-community/HalfLife.UnifiedSdk.MapDecompiler  (for commandline wad extractor)
-# https://github.com/Garux/netradiant-custom/ (or other source of mbspc)
+# https://github.com/Garux/netradiant-custom/ (or other source of mbspc) (actually not needed anymore, using unifiedSDK for all now)
 
 # just make these in case they dont exist 
 mkdir models
@@ -28,8 +28,10 @@ SPR2Quake3Shader '*' --recursive
 cd ..
 cd maps
 mkdir wadExtract
-MapDecompilerCmdLine Tree --generate-wad-file --destination "./wadExtract" "$1.bsp"
-mbspc -bsp2map220 "$1.bsp" "$1.map"
+echo "$1.bsp"
+MapDecompilerCmdLine Tree --trigger-wildcard "trigger_*" --generate-wad-file --destination "./wadExtract" "$1.bsp"
+
+mv "./wadExtract/$1.map" .
 
 cd wadExtract 
 rm shaders/wadConvertShaders.shader
@@ -64,8 +66,6 @@ cat "shaders/wadConvertShaders.shader" >> "_converted/shaders/$1_tmp.shader"
 rm "_converted/shaders/$1.shader"
 
 cd maps
-rm "$1.map"
-mv "$1_decompiled.map" "$1.map"
 FilterMapShaderNames "$1.map" "../_converted/shaders/"
 
 cd ..
