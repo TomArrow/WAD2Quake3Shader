@@ -85,7 +85,21 @@ cp -r models/models _converted
 cp -r sprites/textures/sprConvert _converted/textures
 cp -r textures/wadConvert _converted/textures
 cp -r maps/wadExtract/textures/wadConvert _converted/textures
+
+# rename skyboxes
+mkdir _converted/gfx
+mkdir _converted/gfx/env
+rm _converted/gfx/env/*
 cp -r gfx _converted
+cd _converted/gfx/env
+find . -maxdepth 1 -name '*' -type f -exec bash -c ' mv "$0" "${0/\dn\./_dn\.}"' {} \;
+find . -maxdepth 1 -name '*' -type f -exec bash -c ' mv "$0" "${0/\ft\./_ft\.}"' {} \;
+find . -maxdepth 1 -name '*' -type f -exec bash -c ' mv "$0" "${0/\rt\./_rt\.}"' {} \;
+find . -maxdepth 1 -name '*' -type f -exec bash -c ' mv "$0" "${0/\lf\./_lf\.}"' {} \;
+find . -maxdepth 1 -name '*' -type f -exec bash -c ' mv "$0" "${0/\up\./_up\.}"' {} \;
+find . -maxdepth 1 -name '*' -type f -exec bash -c ' mv "$0" "${0/\bk\./_bk\.}"' {} \;
+cd ../../..
+
 cp -r sound _converted
 cp "maps/$1.map.filtered.map" "_converted/maps/$1.map"
 
