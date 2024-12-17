@@ -919,6 +919,8 @@ namespace WAD2Q3SharedStuff
         static Regex pseudoLavaRegex = new Regex(@"^l+a+v+a+", RegexOptions.IgnoreCase | RegexOptions.Compiled);
         static Regex pseudoSlimeRegex = new Regex(@"^s+l+i+m+e+", RegexOptions.IgnoreCase | RegexOptions.Compiled);
         static Regex pseudoWaterRegex = new Regex(@"^w+a+t+e+r+", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        static Regex pseudoLightRegex = new Regex(@"^l+i+g+h+t+", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        static Regex pseudoLightAnywhereRegex = new Regex(@"(^|[^A-Za-z])l+i+g+h+t+", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
 
         public static TextureType TextureTypeFromSpriteProperties(SpriteTexFormat textureFormat, SpriteType spriteType)
@@ -1051,6 +1053,18 @@ namespace WAD2Q3SharedStuff
                         type |= TextureType.Slime | TextureType.PseudoSlime;
                         nameStartIndex += match.Value.Length - 1;
                         specialMatchFoudn = true;
+                    }
+                    else if ((match = pseudoLightRegex.Match(textureHere)).Success)
+                    {
+                        type |= TextureType.LightEmitting;
+                        nameStartIndex += match.Value.Length - 1;
+                        specialMatchFoudn = true;
+                    }
+                    else if ((match = pseudoLightAnywhereRegex.Match(textureHere)).Success && (type & TextureType.LightEmitting) == 0)
+                    {
+                        type |= TextureType.LightEmitting;
+                        specialMatchFoudn = true;
+                        nameStartIndex -= 1;
                     }
                 }
                 if (specialMatchFoudn)
