@@ -669,7 +669,8 @@ namespace FilterMapShaderNames
                             modelPath = "";
                         }
                     }
-                    string convertedModelPath = "models/mdlConvert/" + SharedStuff.fixUpShaderName(Path.Combine(modelPath, Path.GetFileNameWithoutExtension(props["model"])).Replace('\\', '/'))+".obj";
+                    //string convertedModelPath = "models/mdlConvert/" + SharedStuff.fixUpShaderName(Path.Combine(modelPath, Path.GetFileNameWithoutExtension(props["model"])).Replace('\\', '/'))+".obj";
+                    string convertedModelPath = "models/" + SharedStuff.fixUpShaderName(Path.Combine(modelPath, Path.GetFileNameWithoutExtension(props["model"])).Replace('\\', '/'))+".obj";
                     props["model"] = convertedModelPath;
                     int originalSpawnFlags = 0;
                     if (props.ContainsKey("spawnflags") && int.TryParse(props["spawnflags"], out originalSpawnFlags))

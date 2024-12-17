@@ -79,16 +79,19 @@ namespace MDL2Quake3OBJ_NET
             float smallestZ = 0;
 
 
-            Directory.CreateDirectory("models/mdlConvert");
+            //Directory.CreateDirectory("models/mdlConvert");
+            Directory.CreateDirectory("models");
 
             string thisFilename = Path.GetFileName(filename);
             string thisFilename_NoExt = Path.GetFileNameWithoutExtension(filename);
 
             //string filePathOutputRelative = Path.Combine("models/mdlConvert",Path.ChangeExtension(Path.GetFileName(filename),".obj"));
-            string filePathOutputRelative = Path.Combine("models/mdlConvert",SharedStuff.fixUpShaderName($"{relativePathWithoutExtension}")).Replace('\\', '/')+ ".obj";
+            //string filePathOutputRelative = Path.Combine("models/mdlConvert",SharedStuff.fixUpShaderName($"{relativePathWithoutExtension}")).Replace('\\', '/')+ ".obj";
+            string filePathOutputRelative = Path.Combine("models",SharedStuff.fixUpShaderName($"{relativePathWithoutExtension}")).Replace('\\', '/')+ ".obj";
             string filePathOutputFull = Path.GetFullPath(filePathOutputRelative);
             //string mtlPath = Path.Combine("models/mdlConvert",Path.ChangeExtension(thisFilename, ".mtl"));
-            string mtlPath = Path.Combine("models/mdlConvert", SharedStuff.fixUpShaderName($"{relativePathWithoutExtension}")).Replace('\\', '/')+".mtl";
+            //string mtlPath = Path.Combine("models/mdlConvert", SharedStuff.fixUpShaderName($"{relativePathWithoutExtension}")).Replace('\\', '/')+".mtl";
+            string mtlPath = Path.Combine("models", SharedStuff.fixUpShaderName($"{relativePathWithoutExtension}")).Replace('\\', '/')+".mtl";
 
             Directory.CreateDirectory(Path.GetDirectoryName(filePathOutputRelative));
 
@@ -225,7 +228,8 @@ namespace MDL2Quake3OBJ_NET
 
 
                // string texturePath = SharedStuff.fixUpShaderName($"models/mdlConvert/{textureName}");
-                string texturePath = $"models/mdlConvert/" + SharedStuff.fixUpShaderName(Path.Combine(Path.GetDirectoryName(relativePath) , $"{textureName}").Replace('\\','/'));
+                //string texturePath = $"models/mdlConvert/" + SharedStuff.fixUpShaderName(Path.Combine(Path.GetDirectoryName(relativePath) , $"{textureName}").Replace('\\','/'));
+                string texturePath = $"models/" + SharedStuff.fixUpShaderName(Path.Combine(Path.GetDirectoryName(relativePath) , $"{textureName}").Replace('\\','/'));
 
 
                 (bool onlyPOT, string shaderText) = SharedStuff.MakeShader(type, texturePath, $"map {texturePath}", resizedImage != null, thisShaderLightIntensity); // For models we cull transparent textures by default
