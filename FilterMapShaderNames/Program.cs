@@ -994,6 +994,12 @@ namespace FilterMapShaderNames
                     brushesString = MakeFacesDetail(brushesString);
                     resave = true;
                 }
+                else if (props["classname"].Equals("func_conveyor", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    props["classname"] = "func_group";
+                    brushesString = MakeFacesDetail(brushesString);
+                    resave = true;
+                }
                 else if (props["classname"].Equals("info_teleport_destination", StringComparison.InvariantCultureIgnoreCase))
                 {
                     props["classname"] = "misc_teleporter_dest";
