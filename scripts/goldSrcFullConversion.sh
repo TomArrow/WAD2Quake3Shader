@@ -81,7 +81,7 @@ mkdir _converted/models
 mkdir _converted/models/mdlConvert
 mkdir _converted/textures
 mkdir _converted/textures/wadConvert
-cp -r models/models/mdlConvert _converted/models
+cp -r models/models _converted/models
 cp -r sprites/textures/sprConvert _converted/textures
 cp -r textures/wadConvert _converted/textures
 cp -r maps/wadExtract/textures/wadConvert _converted/textures
