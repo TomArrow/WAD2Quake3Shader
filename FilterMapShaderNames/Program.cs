@@ -9,7 +9,8 @@ using System.Collections.Generic;
 
 namespace FilterMapShaderNames
 {
-    // TODO models path wrong
+    
+    // TODO jumppad conversion
     class SpriteInfo {
         public SpriteTexFormat texFormat = SpriteTexFormat.Normal;
         public SpriteType type = SpriteType.Oriented;
@@ -293,7 +294,7 @@ namespace FilterMapShaderNames
                 //if (renderProperties != null)
                 {
                     string renderPropsHash = renderProperties != null ? renderProperties.GetHashString().Substring(0, 6) : null;
-                    bool isTrigger = props["classname"].StartsWith("trigger_", StringComparison.OrdinalIgnoreCase);
+                    bool isTrigger = props["classname"].StartsWith("trigger_", StringComparison.OrdinalIgnoreCase) || props["classname"].Equals("func_ladder", StringComparison.OrdinalIgnoreCase);
 
                     // Do: If func_water add waterFluid property, respect wave height maybe?
                     brushesString = findShader.Replace(brushesString,(Match match) => {

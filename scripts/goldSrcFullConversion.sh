@@ -29,7 +29,7 @@ cd ..
 cd maps
 mkdir wadExtract
 echo "$1.bsp"
-MapDecompilerCmdLine Tree --trigger-wildcard "trigger_*" --generate-wad-file --destination "./wadExtract" "$1.bsp"
+MapDecompilerCmdLine Tree --trigger-wildcard "func_*"  --trigger-wildcard "trigger_*" --generate-wad-file --destination "./wadExtract" "$1.bsp"
 
 mv "./wadExtract/$1.map" .
 
